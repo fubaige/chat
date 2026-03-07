@@ -9,7 +9,7 @@ param(
 $SERVER_IP = "103.36.221.102"
 $SERVER_PORT = 59582
 $SERVER_USER = "root"
-$DEPLOY_PATH = "/www/wwwroot/chat.fubaige.cn"
+$DEPLOY_PATH = "/www/wwwroot/chat.aigcqun.cn"
 $SSH_KEY = ".ssh_deploy_key"
 
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -113,7 +113,7 @@ Write-Host "==========================================" -ForegroundColor Green
 Write-Host "  Deployment Complete!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "URL: https://chat.fubaige.cn" -ForegroundColor Cyan
+Write-Host "URL: https://chat.aigcqun.cn" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Common commands:" -ForegroundColor Yellow
 Write-Host "  View logs: docker-compose logs -f" -ForegroundColor DarkGray
