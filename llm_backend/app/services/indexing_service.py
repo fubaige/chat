@@ -395,39 +395,37 @@ class IndexingService:
                 'file_type': file_type,
                 'config_used': config_file,
                 'is_update': is_update,
-                'status': 'success',
                 'user_id': user_id,
                 'input_dir': user_input_dir,
                 'output_dir': user_output_dir
             }
             
-            # 更新数据库状态
-            await self._update_db_record(record_id, {"status": "success"})
-            logger.info(f"数据库记录已更新为 success (ID: {record_id})")
-            
-            # 生成预览（可选，失败不影响主流程）
-            try:
-                from app.services.gemini_service import gemini_service
-                preview_text = await gemini_service.parse_file(
-                    input_file_path,
-                    prompt="请用简洁的语言（100字以内）概括该文档或图片的核心内容。"
-                )
-                if preview_text:
-                    result_info['preview'] = preview_text
-                    await self._update_db_record(record_id, {"preview": preview_text})
-            except Exception as preview_err:
-                logger.warning(f"生成预览内容失败: {preview_err}")
-            
             # 检查索引结果中是否有错误
+            has_error = False
+            error_msgs = []
+            
             for workflow_result in index_result_list:
                 if hasattr(workflow_result, 'errors') and workflow_result.errors:
-                    result_info['status'] = 'error'
-                    result_info['errors'] = workflow_result.errors
-                    await self._update_db_record(record_id, {
-                        "status": "error",
-                        "error_message": "; ".join(workflow_result.errors)
-                    })
-                    logger.error(f"索引构建失败: {workflow_result.errors}")
+                    has_error = True
+                    # 强制转换为字符串，防止 ArrowInvalid 等对象引起 join 失败
+                    for err in workflow_result.errors:
+                        error_msgs.append(str(err))
+            
+            if has_error:
+                error_summary = "; ".join(error_msgs)
+                result_info['status'] = 'error'
+                result_info['errors'] = error_msgs
+                await self._update_db_record(record_id, {
+                    "status": "error",
+                    "error_message": error_summary
+                })
+                logger.error(f"索引构建失败: {error_summary}")
+                return result_info
+
+            # 只有全流程无错才标记为成功
+            result_info['status'] = 'success'
+            await self._update_db_record(record_id, {"status": "success"})
+            logger.info(f"数据库记录已更新为 success (ID: {record_id})")
             
             return result_info
             
