@@ -360,14 +360,6 @@ body {
 
 .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* 增强按钮图标可见性 */
-.send-btn i, .primary-btn i, .footer-btn i, .new-chat-btn i {
-    display: inline-block !important;
-    visibility: visible !important;
-    font-family: "Font Awesome 5 Free", "Font Awesome 5 Brands" !important;
-    font-weight: 900 !important;
-}
-
 /* ========== Knowledge Base View ========== */
 #kb-view, #settings-view, #wechat-view, #user-list-view, #agent-config-view {
     padding: 32px 4%;

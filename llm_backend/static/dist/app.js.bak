@@ -280,12 +280,10 @@ async function sendMessage() {
     const text = elements.chatInput.value.trim();
     if (!text && !currentImage) return;
 
-    console.log("[DEBUG] 开始发送消息，text:", text, "hasImage:", !!currentImage);
     elements.welcomeScreen.style.display = 'none';
 
     // ★ 如果不是联网搜索模式，关闭搜索面板
     if (!state.isWebSearch) {
-        console.log("[DEBUG] 非联网搜索模式，关闭搜索面板");
         closeSearchPanel();
     }
 
@@ -301,7 +299,6 @@ async function sendMessage() {
     }
 
     // ★ 添加用户消息到 UI（保存引用以防被覆盖）
-    console.log("[DEBUG] 正在将用户消息添加到 UI");
     const userMsgId = addMessageToUI('user', text, currentImage ? URL.createObjectURL(currentImage) : null);
     
     elements.chatInput.value = '';
@@ -321,7 +318,6 @@ async function sendMessage() {
     }
 
     // ★ 添加 bot 的"思考中"消息
-    console.log("[DEBUG] 添加 bot 思考中状态");
     const loadingId = addMessageToUI('bot', '<i class="fas fa-circle-notch fa-spin"></i> 思考中...', null, true);
 
     try {
@@ -335,14 +331,13 @@ async function sendMessage() {
 
         if (!response.ok) throw new Error('Network response was not ok');
 
+        const contentType = response.headers.get("Content-Type");
         if (contentType && contentType.includes("text/event-stream")) {
-            console.log("[DEBUG] 收到 SSE 流式响应");
             // ★ 先不清空，等收到第一个数据块再清空
             const reader = response.body.getReader();
             if (!reader) throw new Error("无法读取响应流");
             await readStream(reader, loadingId);
         } else {
-            console.log("[DEBUG] 收到普通 JSON 响应");
             const data = await response.json();
             updateMessageUI(loadingId, data.answer || data.response || "No response");
         }
@@ -497,7 +492,7 @@ function closeSearchPanel() {
 
 // --- UI Helpers ---
 
-    console.log("[DEBUG] addMessageToUI 调用:", {type, contentSnippet: content.substring(0, 30), isLoading});
+function addMessageToUI(type, content, imageUrl, isLoading = false) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${type}`;
     const id = 'msg-' + Date.now() + '-' + (++msgIdCounter);
@@ -508,13 +503,7 @@ function closeSearchPanel() {
         innerContent += `<img src="${imageUrl}" style="max-width: 300px; border-radius: 8px; margin-bottom: 8px; display: block;">`;
     }
     
-    let parsedContent = '';
-    try {
-        parsedContent = isLoading ? content : (typeof marked !== 'undefined' ? marked.parse(content) : content);
-    } catch (e) {
-        console.error("[ERROR] Markdown 解析失败:", e);
-        parsedContent = content; // 回退到原始内容
-    }
+    const parsedContent = isLoading ? content : marked.parse(content);
 
     msgDiv.innerHTML = `
         <div class="avatar ${type}">
@@ -523,17 +512,8 @@ function closeSearchPanel() {
         <div class="msg-content markdown-body">${innerContent}${parsedContent}</div>
     `;
 
-    if (!elements.chatContainer) {
-        console.error("[ERROR] elements.chatContainer 丢失，正在尝试重新获取");
-        elements.chatContainer = document.getElementById('chat-container');
-    }
-
-    if (elements.chatContainer) {
-        elements.chatContainer.appendChild(msgDiv);
-        elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
-    } else {
-        console.error("[ERROR] 无法将消息添加到 UI，chat-container 元素无法定位");
-    }
+    elements.chatContainer.appendChild(msgDiv);
+    elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
     
     if (!isLoading) {
         msgDiv.querySelectorAll('pre code').forEach((block) => {
@@ -754,7 +734,7 @@ function showChatView() {
     stopKbPolling();
 }
 
-    console.log("[DEBUG] 开始加载知识库文件列表, user_id:", state.userId);
+async function loadKbFiles(silent = false) {
     if (!silent) {
         elements.kbFileList.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#666;">加载中...</td></tr>';
     }
@@ -763,14 +743,12 @@ function showChatView() {
         const res = await fetch(`/api/knowledge-base/user/${state.userId}`, {
              headers: {'Authorization': `Bearer ${state.token}`}
         });
-        if (!res.ok) throw new Error("API Error: " + res.status);
+        if (!res.ok) throw new Error("API Error");
         state.kbFiles = await res.json();
-        console.log("[DEBUG] 知识库文件列表获取完毕, 数量:", state.kbFiles.length);
         renderKbTable(state.kbFiles);
     } catch (e) {
-        console.error("[ERROR] 加载知识库失败:", e);
         if (!silent) {
-            elements.kbFileList.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#cf6679;">加载失败: ' + e.message + '</td></tr>';
+            elements.kbFileList.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#cf6679;">加载失败</td></tr>';
         }
     }
 }
@@ -794,49 +772,34 @@ function stopKbPolling() {
 }
 
 function renderKbTable(files) {
-    console.log("[DEBUG] 正在渲染知识库表格, 文件数:", files.length);
-    if (!elements.kbFileList) {
-        console.error("[ERROR] elements.kbFileList 元素丢失，尝试重新获取");
-        elements.kbFileList = document.getElementById('kb-file-list');
-    }
-
-    if (!files || files.length === 0) {
+    if (files.length === 0) {
         elements.kbFileList.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#666;">暂无文档，请点击右上角导入。</td></tr>';
         return;
     }
     
-    try {
-        const html = files.map(file => {
-            const isReady = file.status === 'success';
-            const safeFileName = (file.original_name || "未命名").replace(/'/g, "\\'");
-            const nameHtml = isReady
-                ? `<a href="javascript:void(0)" onclick="viewKbChunks(${file.id}, '${safeFileName}')" style="color:#4d6bfe; text-decoration:none; cursor:pointer;" title="点击查看文本块内容"><i class="far fa-file-alt" style="margin-right:8px;"></i>${file.original_name}</a>`
-                : `<span style="color:#999;"><i class="far fa-file-alt" style="margin-right:8px;"></i>${file.original_name}</span>`;
-            const embeddingBadge = file.embedding_type === 'dashscope'
-                ? `<span style="font-size:11px; padding:2px 7px; border-radius:4px; background:#1a3a2a; color:#4ade80; border:1px solid #4ade8055;">百炼</span>`
-                : `<span style="font-size:11px; padding:2px 7px; border-radius:4px; background:#1a2a3a; color:#60a5fa; border:1px solid #60a5fa55;">${file.embedding_type || '本地'}</span>`;
-            
-            return `
-            <tr>
-                <td>${nameHtml}</td>
-                <td>${formatSize(file.size || 0)}</td>
-                <td>${getStatusBadge(file.status)}</td>
-                <td>${embeddingBadge}</td>
-                <td>${file.created_at ? new Date(file.created_at).toLocaleString('zh-CN') : '-'}</td>
-                <td>
-                    ${isReady ? `<button onclick="viewKbChunks(${file.id}, '${safeFileName}')" style="background:none; border:none; color:#4d6bfe; cursor:pointer; margin-right:8px;" title="查看内容"><i class="fas fa-eye"></i></button>` : ''}
-                    <button onclick="deleteKbFile(${file.id})" style="background:none; border:none; color:#cf6679; cursor:pointer;" title="删除">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>`;
-        }).join('');
-        elements.kbFileList.innerHTML = html;
-        console.log("[DEBUG] 知识库表格渲染完成");
-    } catch (e) {
-        console.error("[ERROR] 知识库列表渲染崩溃:", e);
-        elements.kbFileList.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#cf6679;">渲染失败，请检查控制台</td></tr>';
-    }
+    elements.kbFileList.innerHTML = files.map(file => {
+        const isReady = file.status === 'success';
+        const nameHtml = isReady
+            ? `<a href="javascript:void(0)" onclick="viewKbChunks(${file.id}, '${file.original_name.replace(/'/g, "\\'")}')" style="color:#4d6bfe; text-decoration:none; cursor:pointer;" title="点击查看文本块内容"><i class="far fa-file-alt" style="margin-right:8px;"></i>${file.original_name}</a>`
+            : `<span style="color:#999;"><i class="far fa-file-alt" style="margin-right:8px;"></i>${file.original_name}</span>`;
+        const embeddingBadge = file.embedding_type === 'dashscope'
+            ? `<span style="font-size:11px; padding:2px 7px; border-radius:4px; background:#1a3a2a; color:#4ade80; border:1px solid #4ade8055;">百炼</span>`
+            : `<span style="font-size:11px; padding:2px 7px; border-radius:4px; background:#1a2a3a; color:#60a5fa; border:1px solid #60a5fa55;">${file.embedding_type || '本地'}</span>`;
+        return `
+        <tr>
+            <td>${nameHtml}</td>
+            <td>${formatSize(file.size || 0)}</td>
+            <td>${getStatusBadge(file.status)}</td>
+            <td>${embeddingBadge}</td>
+            <td>${new Date(file.created_at).toLocaleString('zh-CN')}</td>
+            <td>
+                ${isReady ? `<button onclick="viewKbChunks(${file.id}, '${file.original_name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#4d6bfe; cursor:pointer; margin-right:8px;" title="查看内容"><i class="fas fa-eye"></i></button>` : ''}
+                <button onclick="deleteKbFile(${file.id})" style="background:none; border:none; color:#cf6679; cursor:pointer;" title="删除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
 }
 
 function filterKbFiles(text) {
