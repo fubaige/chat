@@ -55,7 +55,7 @@ ssh -i .ssh_deploy_key -p 59582 root@IP地址
 # 进入项目目录一键推送拉取部署
 git add -A; git status --short
 .\deploy-quick.ps1 -Message "fix: force Docker rebuild with BUILD_TIMESTAMP"
-```
+
 
 ---
 
