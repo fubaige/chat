@@ -416,7 +416,7 @@ class IndexingService:
             return result_info
             
         except Exception as e:
-            logger.error(f"处理文件时发生错误: {str(e)}", exc_info=True)
+            logger.error("处理文件时发生错误: {}", str(e), exc_info=True)
             if record_id:
                 await self._update_db_record(record_id, {
                     "status": "error",
@@ -454,14 +454,15 @@ class IndexingService:
         
         # 显式注入环境变量解决 KeyError
         # 这是为了确保 GraphRAG 的 load_config 能够解析 settings.yaml 中的 ${VAR}
-        os.environ["GRAPHRAG_API_BASE"] = settings.GRAPHRAG_API_BASE
-        os.environ["GRAPHRAG_API_KEY"] = settings.GRAPHRAG_API_KEY
-        os.environ["GRAPHRAG_MODEL_NAME"] = settings.GRAPHRAG_MODEL_NAME
-        os.environ["Embedding_API_BASE"] = settings.Embedding_API_BASE
-        os.environ["Embedding_API_KEY"] = settings.Embedding_API_KEY
-        os.environ["Embedding_MODEL_NAME"] = settings.Embedding_MODEL_NAME
+        os.environ["GRAPHRAG_API_BASE"] = str(settings.GRAPHRAG_API_BASE or "")
+        os.environ["GRAPHRAG_API_KEY"] = str(settings.GRAPHRAG_API_KEY or "")
+        os.environ["GRAPHRAG_MODEL_NAME"] = str(settings.GRAPHRAG_MODEL_NAME or "")
+        os.environ["Embedding_API_BASE"] = str(settings.Embedding_API_BASE or "")
+        os.environ["Embedding_API_KEY"] = str(settings.Embedding_API_KEY or "")
+        os.environ["Embedding_MODEL_NAME"] = str(settings.Embedding_MODEL_NAME or "")
         
-        logger.info(f"[线程] 环境变量已注入: GRAPHRAG_API_BASE={settings.GRAPHRAG_API_BASE}")
+        logger.info(f"[线程] 环境变量已注入: GRAPHRAG_API_BASE={os.environ['GRAPHRAG_API_BASE']}")
+        logger.info(f"[线程] API Key 长度检测: LLM_KEY={len(os.environ['GRAPHRAG_API_KEY'])}, Embed_KEY={len(os.environ['Embedding_API_KEY'])}")
         
         data_dir_path = Path(data_dir_str)
         config_file_path = Path(config_path_str)
