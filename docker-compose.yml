@@ -11,6 +11,8 @@ services:
       - ./llm_backend/logs:/app/logs
     env_file:
       - ./llm_backend/.env
+    environment:
+      - REDIS_HOST=redis
     restart: always
     depends_on:
       - mysql
@@ -24,7 +26,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD-password}
       MYSQL_DATABASE: ${MYSQL_DATABASE-fastchat}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - ./data/mysql:/var/lib/mysql
     restart: always
@@ -34,7 +36,7 @@ services:
     image: redis:6.2
     container_name: fastchat-redis
     ports:
-      - "6379:6379"
+      - "6381:6379"
     restart: always
 
   # Neo4j 图数据库
