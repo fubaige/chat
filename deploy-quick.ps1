@@ -60,14 +60,11 @@ Write-Host "OK Pushed successfully" -ForegroundColor Green
 Write-Host ""
 
 # 4. Clean up server disk space before deploy
-Write-Host "[4/6] Cleaning up server disk space..." -ForegroundColor Yellow
-Write-Host "  - Docker dangling images prune" -ForegroundColor DarkGray
+Write-Host "[4/6] Cleaning up server disk space (Preserving build cache)..." -ForegroundColor Yellow
+# Write-Host "  - Docker dangling images prune (Skipped to preserve cache)" -ForegroundColor DarkGray
 $sshCleanup = @"
-docker image prune -f 2>/dev/null || true
+# docker image prune -f 2>/dev/null || true
 apt-get clean 2>/dev/null || true
-apt-get autoremove -y 2>/dev/null || true
-journalctl --vacuum-time=7d 2>/dev/null || true
-echo 'Disk cleanup completed (cache preserved for faster builds)'
 "@
 ssh -i $SSH_KEY -p $SERVER_PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=10 -o ServerAliveCountMax=6 "${SERVER_USER}@${SERVER_IP}" $sshCleanup
 Write-Host "OK Server disk cleaned" -ForegroundColor Green

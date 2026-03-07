@@ -45,7 +45,7 @@ ssh -i .ssh_deploy_key -p 59582 root@103.36.221.102
 ### 2. 获取代码与部署 (GitHub 方式)
 在本地使用 Git 将代码推送到 GitHub（请先关联你的仓库地址），然后在服务器端拉取：
 ```bash
-# 进入项目目录
+# 进入项目目录一键推送拉取部署
 git add -A; git status --short
 .\deploy-quick.ps1 -Message "fix: force Docker rebuild with BUILD_TIMESTAMP"
 ```

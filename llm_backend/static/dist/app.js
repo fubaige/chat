@@ -335,6 +335,7 @@ async function sendMessage() {
 
         if (!response.ok) throw new Error('Network response was not ok');
 
+        const contentType = response.headers.get("Content-Type");
         if (contentType && contentType.includes("text/event-stream")) {
             console.log("[DEBUG] 收到 SSE 流式响应");
             // ★ 先不清空，等收到第一个数据块再清空

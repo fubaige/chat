@@ -16,12 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖文件并安装 (使用清华源，并优化缓存挂载)
+# 1. 首先只复制依赖文件并安装 (最大化利用 Docker 缓存层)
+# 只要 requirements.txt 没变，这一步在后续构建中会显示为 CACHED，完全跳过下载过程
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 复制后端代码
+# 2. 最后才复制后端代码 (业务代码变动频繁，放在依赖安装之后)
 COPY llm_backend/ ./
 
 # 暴露后端端口（与 run.py 中配置一致）
