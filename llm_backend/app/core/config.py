@@ -251,9 +251,21 @@ class DynamicSettings:
                 result = await session.execute(select(SystemSettings))
                 rows = result.scalars().all()
                 if rows:
-                    self._cache = {row.key: row.value for row in rows}
+                    self._cache = {}
+                    for row in rows:
+                        val = row.value
+                        # 【全栈专家补丁】自动纠正路径残留：如果数据库中存储的是宿主机路径（如 /www/wwwroot），强制转为容器内路径
+                        if row.key == "GRAPHRAG_PROJECT_DIR":
+                            # 判定条件：包含宿主机常见路径特征，或者路径在容器内不存在
+                            is_invalid = "/www/wwwroot" in val or "C:\\" in val
+                            if is_invalid:
+                                container_path = str(ROOT_DIR / "app" / "graphrag")
+                                logger.info(f"检测到环境迁移造成的路径冲突，已自动修正: {val} -> {container_path}")
+                                val = container_path
+                        self._cache[row.key] = val
+                        
                     self._loaded = True
-                    logger.info(f"从数据库加载了 {len(self._cache)} 项配置")
+                    logger.info(f"从数据库加载了 {len(self._cache)} 项配置（含路径自动校准）")
                 else:
                     logger.info("数据库中无配置，使用 .env 初始值")
         except Exception as e:
