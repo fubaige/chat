@@ -336,7 +336,10 @@ class IndexingService:
             else:
                 file_type_override = 'text'
                 pattern = r".*\.txt$"
-            
+            config_overrides = {
+                'input.base_dir': rel_input_dir,
+                'output.base_dir': rel_output_dir,
+                'input.file_type': file_type_override,
                 'input.file_pattern': pattern,
                 # 显式注入 LLM 和 Embedding 配置，防止环境变量展开失效
                 'models.default_chat_model.api_base': settings.GRAPHRAG_API_BASE,

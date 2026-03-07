@@ -723,7 +723,7 @@ async def upload_file(
         return result
         
     except Exception as e:
-        logger.error(f"Upload failed for user {user_id}: {str(e)}", exc_info=True)
+        logger.error("Upload failed for user {}: {}", user_id, str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat-rag")
