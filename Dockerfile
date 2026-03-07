@@ -16,9 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖文件并安装
+# 复制依赖文件并安装 (使用清华源，并优化缓存挂载)
 COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 复制后端代码
 COPY llm_backend/ ./

@@ -105,7 +105,7 @@ Write-Host "(Press Ctrl+C to exit log view, deployment continues)" -ForegroundCo
 Write-Host ""
 
 # Deploy command: extract, fix line endings, and run docker-compose
-$remoteCmd = "cd $DEPLOY_PATH && tar -xzf deploy-archive.tar.gz 2>/dev/null && rm -f deploy-archive.tar.gz && docker-compose up -d --build"
+$remoteCmd = "cd $DEPLOY_PATH && tar -xzf deploy-archive.tar.gz 2>/dev/null && rm -f deploy-archive.tar.gz && export DOCKER_BUILDKIT=1 && export COMPOSE_DOCKER_CLI_BUILD=1 && docker-compose up -d --build"
 ssh -i $SSH_KEY -p $SERVER_PORT -o StrictHostKeyChecking=no -o ServerAliveInterval=10 -o ServerAliveCountMax=6 "${SERVER_USER}@${SERVER_IP}" $remoteCmd
 
 Write-Host ""

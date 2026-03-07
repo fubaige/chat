@@ -12,6 +12,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# Allow static dist files
+!llm_backend/static/dist/**
 parts/
 sdist/
 var/

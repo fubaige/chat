@@ -497,6 +497,7 @@ function closeSearchPanel() {
 
 // --- UI Helpers ---
 
+function addMessageToUI(type, content, imageUrl, isLoading = false) {
     console.log("[DEBUG] addMessageToUI 调用:", {type, contentSnippet: content.substring(0, 30), isLoading});
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${type}`;
@@ -754,6 +755,7 @@ function showChatView() {
     stopKbPolling();
 }
 
+async function loadKbFiles(silent = false) {
     console.log("[DEBUG] 开始加载知识库文件列表, user_id:", state.userId);
     if (!silent) {
         elements.kbFileList.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#666;">加载中...</td></tr>';
