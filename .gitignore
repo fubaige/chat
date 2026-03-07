@@ -41,4 +41,10 @@ log/
 
 # Local development
 .env.local
-.env.*.local 
+.env.*.local
+
+# Sensitive files and project config
+.ssh_deploy_key
+app.pid
+data/
+uploads/

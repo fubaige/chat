@@ -1,0 +1,87 @@
+# Chat AI 一键部署与使用文档
+
+## 项目介绍
+智能客服和对话 AI 系统后端架构，提供完善的会话与大模型交互能力。支持 Docker 化部署，提供统一的一键执行脚本，并兼容云端虚拟主机的快速上线。
+
+---
+
+## 一、 系统架构更新汇总
+为实现标准化云端部署，对项目结构进行了以下优化：
+1. **清理冗余嵌套目录**：移除了原有的多余 `chat/` 嵌套文件夹，显著减少了项目体积。
+2. **保留必要模块**：确认并保留了 `wx-mp-svr-main` 以便未来微信平台相关拓展。
+3. **Docker 完善**：
+    - `Dockerfile` 预置北京时区（`Asia/Shanghai`）。
+    - 增加 `ENV PYTHONUNBUFFERED=1` 环境变量，确保在使用浏览器控制台和 `docker logs` 查看调试日志时输出详细、无缓冲延迟。
+4. **Git 配置优化**：增加对日志、上传文件夹、PID、部署密钥等敏感信息的 `.gitignore` 规则，防止误入 GitHub。
+
+---
+
+## 二、 服务器基础环境部署指南
+**目标服务器信息：**
+- **IP 地址**: 103.36.221.102
+- **SSH 端口**: 59582
+- **用户名**: root
+- **项目路径**: `/www/wwwroot/chat.aigcqun.cn`
+- **线上访问**: `https://chat.aigcqun.cn`
+
+### 1. SSH 连接服务器
+通过项目根目录下的 `.ssh_deploy_key` 密钥文件安全连接：
+```bash
+# 修改密钥权限（仅 Linux/Mac 适用，Windows 需通过属性设置）
+chmod 400 .ssh_deploy_key
+
+# 远程连接服务器
+ssh -i .ssh_deploy_key -p 59582 root@103.36.221.102
+```
+
+### 2. 获取代码与部署 (GitHub 方式)
+在本地使用 Git 将代码推送到 GitHub（请先关联你的仓库地址），然后在服务器端拉取：
+```bash
+# 进入项目目录
+cd /www/wwwroot/chat.aigcqun.cn
+
+# 克隆/拉取最新代码
+# git pull origin main
+```
+
+---
+
+## 三、 Docker 部署指南 (推荐)
+通过 `docker-compose`，你可以一键启动所有相关服务（后端服务、MySQL、Redis、Neo4j）。
+
+1. 确认已在服务器 `/www/wwwroot/chat.aigcqun.cn` 目录下。
+2. 确保已编写并在 `llm_backend/.env` 配置好对应账号密码等隐私数据（可参考 `.env.example`）。
+3. 启动所有容器：
+```bash
+docker-compose up -d --build
+```
+4. **查看实时调试日志（重要）**：
+```bash
+# 查看后端日志
+docker-compose logs -f backend
+```
+
+---
+
+## 四、 本地脚本直接部署指南 (备选)
+如果你不使用 Docker，也可以依靠提供的一键脚本在本地裸机/当前系统下运行。
+1. **安装环境**：
+```bash
+bash deploy.sh
+```
+该脚本将检查 Python 环境并自动安装依赖、Neo4j 图数据库。
+
+2. **生产环境后台运行**：
+```bash
+bash 生产.sh start
+```
+支持指令：`start` (启动)、`stop` (停止)、`restart` (重启)、`status` (查看状态)、`logs` (实时查看日志)。
+
+3. **开发环境前台运行**：
+```bash
+bash 开发.sh
+```
+将清理占用端口并尝试修复依赖，并实时输出后端调试日志。
+
+---
+**提示：** 每次新增功能或修改核心逻辑后，请持续在此文档进行补充更新。

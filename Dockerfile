@@ -5,6 +5,9 @@ FROM python:3.11-slim
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# 设置环境变量，确保 Python 输出不被缓冲，方便在控制台查看实时日志
+ENV PYTHONUNBUFFERED=1
+
 # 设置工作目录
 WORKDIR /app
 
