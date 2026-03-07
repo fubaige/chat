@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ai智能助手</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="lib/fontawesome.all.min.css">
+    <script src="lib/marked.min.js"></script>
+    <script src="lib/highlight.min.js"></script>
+    <link rel="stylesheet" href="lib/highlight.atom-one-dark.min.css">
+</head>
+<body>
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="sidebar-top-row">
+            <div class="logo-area">
+                <span style="color: #4d6bfe;">🤖</span> Ai智能助手
+            </div>
+            <button class="sidebar-close-btn" onclick="closeSidebar()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <button class="new-chat-btn" onclick="startNewChat()">
+            <i class="fas fa-plus"></i> 开启新对话
+        </button>
+
+        <div class="history-list" id="history-list">
+            <!-- Driven by JS -->
+            <div class="history-item">加载历史记录...</div>
+        </div>
+
+        <div class="sidebar-footer">
+            <!-- 已登录状态 -->
+            <div id="footer-logged-in" style="display:none;">
+                <div class="footer-btn" onclick="toggleAgentConfig()">
+                    <i class="fas fa-robot"></i> 智能体配置
+                </div>
+                <div class="footer-btn" onclick="toggleKnowledgeBase()">
+                    <i class="fas fa-database"></i> 我的知识库
+                </div>
+                <div class="footer-btn" onclick="toggleWechatConfig()">
+                    <i class="fab fa-weixin"></i> 公众号/服务号接入
+                </div>
+                <div class="footer-btn" onclick="openApiDocs()">
+                    <i class="fas fa-code"></i> API接口
+                </div>
+                <div class="footer-btn" id="settings-btn" style="display:none;" onclick="toggleSettings()">
+                    <i class="fas fa-user-circle"></i> 系统配置
+                </div>
+                <div class="footer-btn" id="user-list-btn" style="display:none;" onclick="toggleUserList()">
+                    <i class="fas fa-users"></i> 用户列表
+                </div>
+                <div id="user-info-block" style="padding: 10px 12px; border-top: 1px solid #2a2a2a; margin-top: 4px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; background: #4d6bfe; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-user" style="color: white; font-size: 14px;"></i>
+                        </div>
+                        <div style="overflow: hidden;">
+                            <div id="user-display-name" style="color: #ddd; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                            <div id="user-display-email" style="color: #888; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-btn" onclick="logout()" style="color: #cf6679;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </div>
+            </div>
+            <!-- 未登录状态 -->
+            <div id="footer-logged-out">
+                <div class="footer-btn" onclick="document.getElementById('login-modal').style.display='flex'" style="color: #4d6bfe;">
+                    <i class="fas fa-sign-in-alt"></i> 请登录
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content">
+        
+        <!-- Mobile Header -->
+        <div id="mobile-header">
+            <button class="mobile-menu-btn" onclick="openSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-header-title">
+                <span style="color: #4d6bfe;">🐋</span> Ai智能助手
+            </div>
+            <div style="width: 36px;"></div>
+        </div>
+
+        <!-- View 1: Chat Interface -->
+        <div id="chat-view">
+            <div class="chat-container" id="chat-container">
+                <!-- Welcome Screen (Shown when empty) -->
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-title"><span style="color:#4d6bfe">🐋</span>今天有什么可以帮您？</div>
+                </div>
+                <!-- Chat Messages will be appended here -->
+            </div>
+
+            <div class="chat-input-container">
+                <div class="input-box">
+                    <textarea id="chat-input" class="input-textarea" placeholder="给 智能助手 发送消息..." rows="1" oninput="autoResize(this)"></textarea>
+                    
+                    <!-- Image Preview -->
+                    <div id="image-preview-area" style="display: none; padding: 8px 0;">
+                        <span id="image-name" style="font-size: 12px; color: #aaa;"></span>
+                        <i class="fas fa-times" onclick="clearImage()" style="cursor: pointer; margin-left: 8px; color: #666;"></i>
+                    </div>
+
+                    <div class="input-footer">
+                        <div class="tool-toggles">
+                            <button class="toggle-btn" id="btn-deep-thinking" onclick="toggleDeepThinking()">
+                                <i class="fas fa-brain"></i> 深度思考(R1)
+                            </button>
+                            <button class="toggle-btn" id="btn-web-search" onclick="toggleWebSearch()">
+                                <i class="fas fa-globe"></i> 联网搜索
+                            </button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <i class="fas fa-paperclip" style="font-size: 18px; color: #666; cursor: pointer;" onclick="triggerImageUpload()" title="上传图片"></i>
+                            <input type="file" id="image-upload" accept="image/*" style="display: none;" onchange="handleImageSelect(this)">
+                            
+                            <button class="send-btn" onclick="sendMessage()" id="send-btn">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: center; color: #666; font-size: 12px; margin-top: 12px;">
+                    AI 生成的内容可能不准确，请核实重要信息。
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2: Knowledge Base Management -->
+        <div id="kb-view" class="hidden">
+            <div class="kb-header-area">
+                <div class="kb-header-title">我的知识库</div>
+                <div class="kb-actions">
+                    <input type="text" class="kb-search-input" placeholder="搜索文档..." oninput="filterKbFiles(this.value)">
+                    <button class="primary-btn" onclick="openUploadModal()">
+                        <i class="fas fa-cloud-upload-alt"></i> 导入文档
+                    </button>
+                </div>
+            </div>
+
+            <div class="kb-table-container">
+                <table class="kb-table">
+                    <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>大小</th>
+                            <th>状态</th>
+                            <th>Embedding</th>
+                            <th>上传时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kb-file-list">
+                        <!-- Driven by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- View 3: Settings -->
+        <div id="settings-view" class="hidden">
+            <div class="kb-header-area">
+                <div class="kb-header-title">系统设置</div>
+                <div class="kb-actions">
+                    <button class="primary-btn" onclick="saveSettings()">
+                        <i class="fas fa-save"></i> 保存设置
+                    </button>
+                </div>
+            </div>
+            <div id="settings-container" style="padding: 20px;">
+                <div style="text-align:center; color:#666;">加载中...</div>
+            </div>
+        </div>
+
+        <!-- View 4: Wechat Auto Reply -->
+        <div id="wechat-view" class="hidden">
+            <!-- Sub-nav tabs -->
+            <div style="display:flex; gap:0; border-bottom:1px solid #333; margin-bottom:20px;">
+                <button id="wechat-tab-config" onclick="switchWechatTab('config')"
+                    style="padding:10px 22px; background:none; border:none; border-bottom:2px solid #4d6bfe; color:#4d6bfe; cursor:pointer; font-size:14px;">
+                    <i class="fas fa-cog"></i> 配置管理
+                </button>
+                <button id="wechat-tab-menu" onclick="switchWechatTab('menu')"
+                    style="padding:10px 22px; background:none; border:none; border-bottom:2px solid transparent; color:#999; cursor:pointer; font-size:14px;">
+                    <i class="fas fa-bars"></i> 自定义菜单
+                </button>
+            </div>
+
+            <!-- Tab: 配置管理 -->
+            <div id="wechat-panel-config">
+                <div class="kb-header-area">
+                    <div class="kb-header-title">公众号/服务号接入</div>
+                    <div class="kb-actions">
+                        <button class="primary-btn" onclick="openWechatConfigModal()">
+                            <i class="fas fa-plus"></i> 新建配置
+                        </button>
+                    </div>
+                </div>
+                <div class="kb-table-container">
+                    <table class="kb-table">
+                        <thead>
+                            <tr>
+                                <th>配置名称</th>
+                                <th>AppID</th>
+                                <th>关联知识库</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wechat-config-list">
+                            <!-- Driven by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: 自定义菜单 -->
+            <div id="wechat-panel-menu" style="display:none;">
+                <div class="kb-header-area">
+                    <div class="kb-header-title">自定义菜单</div>
+                    <div class="kb-actions" style="gap:8px;">
+                        <select id="menu-config-select" onchange="onMenuConfigChange()"
+                            style="padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:#ccc; border-radius:6px; font-size:13px;">
+                            <option value="">-- 选择公众号配置 --</option>
+                        </select>
+                        <button class="primary-btn" onclick="publishMenu()" id="menu-publish-btn" style="display:none;">
+                            <i class="fas fa-paper-plane"></i> 正式发布
+                        </button>
+                        <button class="footer-btn" onclick="saveMenuDraft()" id="menu-draft-btn" style="display:none; border:1px solid #555; color:#ccc;">
+                            <i class="fas fa-save"></i> 保存草稿
+                        </button>
+                        <button class="footer-btn" onclick="confirmDeleteMenu()" id="menu-delete-btn" style="display:none; border:1px solid #cf6679; color:#cf6679;">
+                            <i class="fas fa-trash"></i> 删除菜单
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AppSecret 配置提示 -->
+                <div id="menu-appsecret-panel" style="display:none; background:#1f1f1f; border:1px solid #444; border-radius:8px; padding:16px; margin-bottom:16px;">
+                    <div style="color:#f0a500; font-size:13px; margin-bottom:10px;"><i class="fas fa-exclamation-triangle"></i> 需要配置 AppSecret 才能使用菜单功能</div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <input type="password" id="menu-appsecret-input" placeholder="请输入 AppSecret"
+                            style="flex:1; padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px; font-size:13px;">
+                        <button class="primary-btn" onclick="saveAppsecret()" style="white-space:nowrap;">
+                            <i class="fas fa-check"></i> 保存
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 菜单编辑器主体 -->
+                <div id="menu-editor-body" style="display:none; gap:20px; align-items:flex-start;">
+                    <!-- 左侧：手机预览 + 菜单编辑 -->
+                    <div style="flex-shrink:0; width:380px;">
+                        <!-- 手机外壳 -->
+                        <div style="background:#1a1a1a; border:2px solid #444; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+                            <!-- 状态栏 -->
+                            <div style="background:#2d2d2d; padding:8px 16px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#999;">
+                                <span>10:00</span>
+                                <span><i class="fas fa-signal"></i> 4G <i class="fas fa-battery-full"></i></span>
+                            </div>
+                            <!-- 公众号头部 -->
+                            <div style="background:#f5f5f5; padding:10px 16px; display:flex; justify-content:space-between; align-items:center;">
+                                <i class="fas fa-chevron-left" style="color:#333; font-size:14px;"></i>
+                                <span style="color:#333; font-weight:500; font-size:14px;">公众号</span>
+                                <i class="fas fa-user-circle" style="color:#333; font-size:16px;"></i>
+                            </div>
+                            <!-- 聊天区域 -->
+                            <div style="background:#ededed; height:400px;"></div>
+                            <!-- 底部菜单栏 -->
+                            <div style="background:#f5f5f5; border-top:1px solid #ddd;">
+                                <div style="display:flex; align-items:stretch; min-height:44px;" id="phone-menu-bar">
+                                    <!-- 动态渲染 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 菜单项编辑区 -->
+                        <div id="phone-submenu-area" style="margin-top:8px; background:#f5f5f5; border-radius:8px; overflow:hidden; display:none;">
+                            <!-- 子菜单列表 -->
+                        </div>
+                    </div>
+
+                    <!-- 右侧：菜单信息表单 -->
+                    <div style="flex:1; background:#1f1f1f; border:1px solid #333; border-radius:8px; padding:20px;" id="menu-info-panel">
+                        <div style="color:#ccc; font-size:14px; margin-bottom:16px; font-weight:500;">菜单信息</div>
+                        <div id="menu-form-placeholder" style="color:#666; font-size:13px; text-align:center; padding:40px 0;">
+                            <i class="fas fa-hand-pointer" style="font-size:24px; margin-bottom:10px; display:block;"></i>
+                            请在左侧点击菜单项进行编辑
+                        </div>
+                        <div id="menu-form-content" style="display:none;">
+                            <!-- 名称 -->
+                            <div style="margin-bottom:14px;">
+                                <label style="color:#999; font-size:12px; display:block; margin-bottom:5px;">名称</label>
+                                <input type="text" id="menu-item-name" placeholder="菜单名称"
+                                    style="width:100%; padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px; font-size:13px; box-sizing:border-box;"
+                                    oninput="onMenuItemNameChange()">
+                            </div>
+                            <!-- 消息类型（仅叶子节点显示） -->
+                            <div id="menu-type-section">
+                                <div style="margin-bottom:14px;">
+                                    <label style="color:#999; font-size:12px; display:block; margin-bottom:8px;">消息类型</label>
+                                    <div style="display:flex; gap:16px; align-items:center;">
+                                        <label style="color:#ccc; font-size:13px; cursor:pointer;">
+                                            <input type="radio" name="menu-msg-type" value="click" onchange="onMenuTypeChange()" style="margin-right:4px;"> 发送消息
+                                        </label>
+                                        <label style="color:#ccc; font-size:13px; cursor:pointer;">
+                                            <input type="radio" name="menu-msg-type" value="view" onchange="onMenuTypeChange()" style="margin-right:4px;"> 跳转网页
+                                        </label>
+                                        <label style="color:#4d6bfe; font-size:13px; cursor:pointer;">
+                                            <input type="radio" name="menu-msg-type" value="miniprogram" onchange="onMenuTypeChange()" style="margin-right:4px;"> 小程序
+                                        </label>
+                                    </div>
+                                </div>
+                                <!-- click类型：回复内容 -->
+                                <div id="menu-click-section" style="display:none; margin-bottom:14px;">
+                                    <label style="color:#999; font-size:12px; display:block; margin-bottom:8px;">回复内容</label>
+                                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                        <button type="button" onclick="openReplyModal('text')" style="padding:6px 14px; background:#2d2d2d; border:1px solid #555; color:#ccc; border-radius:4px; cursor:pointer; font-size:12px;">
+                                            <i class="fas fa-font"></i> 文字
+                                        </button>
+                                        <button type="button" onclick="openReplyModal('image')" style="padding:6px 14px; background:#2d2d2d; border:1px solid #555; color:#ccc; border-radius:4px; cursor:pointer; font-size:12px;">
+                                            <i class="fas fa-image"></i> 图片
+                                        </button>
+                                        <button type="button" onclick="openReplyModal('voice')" style="padding:6px 14px; background:#2d2d2d; border:1px solid #555; color:#ccc; border-radius:4px; cursor:pointer; font-size:12px;">
+                                            <i class="fas fa-headphones"></i> 音频
+                                        </button>
+                                        <button type="button" onclick="openReplyModal('video')" style="padding:6px 14px; background:#2d2d2d; border:1px solid #555; color:#ccc; border-radius:4px; cursor:pointer; font-size:12px;">
+                                            <i class="fas fa-video"></i> 视频
+                                        </button>
+                                        <button type="button" onclick="openReplyModal('article')" style="padding:6px 14px; background:#2d2d2d; border:1px solid #555; color:#ccc; border-radius:4px; cursor:pointer; font-size:12px;">
+                                            <i class="fas fa-newspaper"></i> 图文(外链)
+                                        </button>
+                                    </div>
+                                    <div id="menu-click-preview" style="margin-top:8px; font-size:12px; color:#4d6bfe;"></div>
+                                </div>
+                                <!-- view类型：URL -->
+                                <div id="menu-view-section" style="display:none; margin-bottom:14px;">
+                                    <label style="color:#999; font-size:12px; display:block; margin-bottom:5px;">回复内容</label>
+                                    <input type="url" id="menu-view-url" placeholder="https://example.com"
+                                        style="width:100%; padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px; font-size:13px; box-sizing:border-box;"
+                                        oninput="onMenuItemFieldChange()">
+                                </div>
+                                <!-- miniprogram类型 -->
+                                <div id="menu-mini-section" style="display:none; margin-bottom:14px;">
+                                    <div style="margin-bottom:8px;">
+                                        <label style="color:#999; font-size:12px; display:block; margin-bottom:5px;">小程序 AppID</label>
+                                        <input type="text" id="menu-mini-appid" placeholder="小程序AppID"
+                                            style="width:100%; padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px; font-size:13px; box-sizing:border-box;"
+                                            oninput="onMenuItemFieldChange()">
+                                    </div>
+                                    <div style="margin-bottom:8px;">
+                                        <label style="color:#999; font-size:12px; display:block; margin-bottom:5px;">页面路径</label>
+                                        <input type="text" id="menu-mini-pagepath" placeholder="pages/index/index"
+                                            style="width:100%; padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px; font-size:13px; box-sizing:border-box;"
+                                            oninput="onMenuItemFieldChange()">
+                                    </div>
+                                    <div>
+                                        <label style="color:#999; font-size:12px; display:block; margin-bottom:5px;">备用网页URL</label>
+                                        <input type="url" id="menu-mini-url" placeholder="https://example.com"
+                                            style="width:100%; padding:8px 12px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px; font-size:13px; box-sizing:border-box;"
+                                            oninput="onMenuItemFieldChange()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 未选择配置时的提示 -->
+                <div id="menu-no-config-tip" style="text-align:center; padding:60px 0; color:#666;">
+                    <i class="fas fa-bars" style="font-size:32px; margin-bottom:12px; display:block;"></i>
+                    请先在上方选择一个公众号配置
+                </div>
+            </div>
+        </div>
+
+        <!-- 回复内容弹窗 -->
+        <div class="modal-overlay hidden" id="reply-modal">
+            <div class="modal-content" style="max-width:420px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <div class="modal-title" id="reply-modal-title">回复文字</div>
+                    <i class="fas fa-times" onclick="closeReplyModal()" style="cursor:pointer; font-size:18px; color:#999;"></i>
+                </div>
+                <div id="reply-modal-body"></div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button class="footer-btn" onclick="closeReplyModal()" style="border:1px solid #444;">取消</button>
+                    <button class="primary-btn" onclick="confirmReply()">确定</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 发布确认弹窗 -->
+        <div class="modal-overlay hidden" id="publish-confirm-modal">
+            <div class="modal-content" style="max-width:380px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div class="modal-title">提示</div>
+                    <i class="fas fa-times" onclick="closePublishConfirm()" style="cursor:pointer; font-size:18px; color:#999;"></i>
+                </div>
+                <div style="color:#ccc; font-size:14px; margin-bottom:20px;">
+                    <i class="fas fa-exclamation-circle" style="color:#f0a500; margin-right:6px;"></i>
+                    只有保存到草稿的内容，才会被发布，确认发布吗？
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button class="footer-btn" onclick="closePublishConfirm()" style="border:1px solid #444;">取消</button>
+                    <button class="primary-btn" onclick="doPublishMenu()">确定</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 5: User Management (Admin only) -->
+        <div id="user-list-view" class="hidden">            <div class="kb-header-area">
+                <div class="kb-header-title">用户列表</div>
+                <div class="kb-actions">
+                    <button class="primary-btn" onclick="loadUserList()">
+                        <i class="fas fa-sync-alt"></i> 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="kb-table-container">
+                <table class="kb-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户名</th>
+                            <th>邮箱</th>
+                            <th>角色</th>
+                            <th>状态</th>
+                            <th>注册时间</th>
+                            <th>最后登录</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-list-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- View 6: Agent Config -->
+        <div id="agent-config-view" class="hidden">
+            <div class="kb-header-area">
+                <div class="kb-header-title">智能体配置</div>
+                <div class="kb-actions">
+                    <button class="primary-btn" onclick="saveAgentConfig()">
+                        <i class="fas fa-save"></i> 保存配置
+                    </button>
+                </div>
+            </div>
+            <div style="max-width: 860px;">
+                <!-- 提示词 -->
+                <div style="margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <label style="color: #ccc; font-size: 14px; font-weight: 500;">
+                            <i class="fas fa-terminal" style="color: #4d6bfe; margin-right: 6px;"></i>
+                            提示词 <span style="color: #cf6679;">*</span>
+                            <span style="color: #666; font-size: 11px; margin-left: 6px;" title="用于对AI的回复做出一系列的指令及限制">ⓘ</span>
+                        </label>
+                        <button onclick="generatePrompt()" style="padding: 5px 12px; background: none; border: 1px solid #555; color: #aaa; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                            <i class="fas fa-magic"></i> 生成
+                        </button>
+                    </div>
+                    <textarea id="agent-system-prompt" rows="14"
+                        placeholder="用于对AI的回复做出一系列的指令及限制，可参考以下撰写方式：&#10;&#10;# 角色&#10;你是一个专业的周边游推荐官，能够为用户提供丰富多样的短途旅游和周边游方案，并且用生动的语言介绍各个景点的特色。&#10;&#10;## 技能&#10;### 技能 1: 推荐短途旅游地&#10;1. 当用户请求推荐短途旅游地时，询问用户的位置和偏好的旅游类型（如自然风光、历史文化等）。&#10;2. 根据用户的位置和偏好，推荐几个合适的短途旅游地。&#10;&#10;## 限制:&#10;- 只讨论短途旅游和周边游相关内容，拒绝回答与此无关的话题。&#10;- 一定不能自称为AI语言模型、人工智能模型、AI助手等。"
+                        style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #444; color: #ddd; border-radius: 8px; resize: vertical; font-size: 13px; line-height: 1.6; box-sizing: border-box; font-family: inherit;"
+                        oninput="updatePromptCount(this)"></textarea>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                        <span id="agent-prompt-error" style="color: #cf6679; font-size: 12px; display: none;">提示词不能为空</span>
+                        <span style="flex: 1;"></span>
+                        <span id="agent-prompt-count" style="color: #666; font-size: 12px;">0/10000</span>
+                    </div>
+                </div>
+
+                <!-- 对话开场白 -->
+                <div style="margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <label style="color: #ccc; font-size: 14px; font-weight: 500;">
+                            <i class="fas fa-comment-dots" style="color: #4d6bfe; margin-right: 6px;"></i>
+                            对话开场白
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button onclick="generateOpening()" style="padding: 5px 12px; background: none; border: 1px solid #555; color: #aaa; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-magic"></i> 生成
+                            </button>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <div id="opening-toggle" onclick="toggleOpeningEnabled()" style="width: 36px; height: 20px; background: #4d6bfe; border-radius: 10px; position: relative; cursor: pointer; transition: background 0.2s;">
+                                    <div id="opening-toggle-dot" style="width: 16px; height: 16px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 18px; transition: left 0.2s;"></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <textarea id="agent-opening-message" rows="3"
+                        placeholder="你好，有什么想和我说的吗~"
+                        style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #444; color: #ddd; border-radius: 8px; resize: vertical; font-size: 13px; line-height: 1.6; box-sizing: border-box; font-family: inherit;"></textarea>
+                    <div style="color: #666; font-size: 12px; margin-top: 4px;">开场白将替换聊天窗口的默认欢迎语</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <!-- Login/Register Modal -->    <div class="modal-overlay" id="login-modal" style="display: flex;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 20px; color: #4d6bfe;">
+                <span style="font-size: 32px;">🤖</span> Ai智能助手
+            </div>
+            <p style="color: #ccc; margin-bottom: 30px;" id="auth-title">欢迎回来！请登录以继续。</p>
+            
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+                <div class="input-group" style="text-align: left; margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">邮箱 (Email)</label>
+                    <input type="email" id="auth-email" required placeholder="name@example.com"
+                           style="width: 100%; padding: 12px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 8px;">
+                </div>
+                
+                <div class="input-group" id="username-group" style="text-align: left; margin-bottom: 15px; display: none;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">用户名 (Username)</label>
+                    <input type="text" id="auth-username" placeholder="设置用户名"
+                           style="width: 100%; padding: 12px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 8px;">
+                </div>
+
+                <div class="input-group" style="text-align: left; margin-bottom: 20px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">密码 (Password)</label>
+                    <input type="password" id="auth-password" required placeholder="输入密码"
+                           style="width: 100%; padding: 12px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 8px;">
+                </div>
+
+                <button type="submit" class="primary-btn" id="auth-btn" style="width: 100%; justify-content: center; padding: 12px;">
+                    登录
+                </button>
+            </form>
+            
+            <div style="margin-top: 20px; font-size: 12px; color: #666;">
+                <span id="auth-toggle-text">还没有账号？</span> 
+                <span style="cursor: pointer; text-decoration: underline; color: #4d6bfe;" onclick="toggleAuthMode()" id="auth-toggle-link">立即注册</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-overlay hidden" id="upload-modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="modal-title">导入知识库</div>
+                <i class="fas fa-times" onclick="closeUploadModal()" style="cursor: pointer; font-size: 18px; color: #999;"></i>
+            </div>
+            
+            <div class="upload-dropzone" onclick="document.getElementById('kb-file-input').click()">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #666; margin-bottom: 15px;"></i>
+                <p style="color: #ccc; margin-bottom: 5px;">点击或拖拽文件到此处</p>
+                <p style="font-size: 12px; color: #666;">支持 PDF, DOCX, TXT, MD, 图片 (Max 50MB)</p>
+                <input type="file" id="kb-file-input" multiple style="display: none;" onchange="handleKbFileSelect(this)">
+            </div>
+
+            <div class="file-list" id="kb-file-preview">
+                <!-- Selected files show here -->
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="footer-btn" onclick="closeUploadModal()" style="border: 1px solid #444;">取消</button>
+                <button class="primary-btn" onclick="uploadKbFiles()">开始上传并索引</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Results Panel (右侧搜索结果面板) -->
+    <div id="search-results-panel" class="search-results-panel">
+        <div class="search-panel-header">
+            <span><i class="fas fa-globe"></i> 搜索结果</span>
+            <button class="search-panel-close" onclick="closeSearchPanel()"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="search-results-list" class="search-results-list"></div>
+    </div>
+
+    <!-- Wechat Config Modal -->
+    <div class="modal-overlay hidden" id="wechat-config-modal">
+        <div class="modal-content" style="max-width: 650px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="modal-title" id="wechat-modal-title">新建微信配置</div>
+                <i class="fas fa-times" onclick="closeWechatConfigModal()" style="cursor: pointer; font-size: 18px; color: #999;"></i>
+            </div>
+            
+            <form id="wechat-config-form" onsubmit="saveWechatConfig(event)">
+                <!-- 配置名称 -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">配置名称</label>
+                    <input type="text" id="wechat-name" required placeholder="例如：客服公众号"
+                           style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px;">
+                </div>
+
+                <!-- AppID -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">AppID</label>
+                    <input type="text" id="wechat-appid" required placeholder="微信公众号/服务号 AppID"
+                           style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px;">
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">从微信公众平台"开发-基本配置"中获取</div>
+                </div>
+
+                <!-- Token令牌 -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">Token令牌</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="wechat-token" required placeholder="3-32位字母和数字组成"
+                               style="flex: 1; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px;">
+                        <button type="button" onclick="generateToken()" class="footer-btn" style="border: 1px solid #4d6bfe; color: #4d6bfe; white-space: nowrap;">
+                            <i class="fas fa-random"></i> 随机生成
+                        </button>
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">用于签名验证，建议使用随机生成</div>
+                </div>
+
+                <!-- EncodingAESKey -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">EncodingAESKey</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="wechat-aes-key" required placeholder="43位字符的加解密密钥（仅字母和数字）"
+                               pattern="[A-Za-z0-9]{43}" title="必须是43位字母和数字组合"
+                               style="flex: 1; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px; font-size: 12px;">
+                        <button type="button" onclick="generateAESKey()" class="footer-btn" style="border: 1px solid #4d6bfe; color: #4d6bfe; white-space: nowrap;">
+                            <i class="fas fa-random"></i> 随机生成
+                        </button>
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">消息加解密密钥，必须为43位字符（仅包含字母和数字，不含特殊符号）</div>
+                </div>
+
+                <!-- URL服务器地址（编辑模式显示） -->
+                <div class="input-group" id="wechat-server-url-group" style="margin-bottom: 15px; display: none;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">
+                        URL服务器地址
+                        <span style="color: #4d6bfe; font-size: 11px;">(配置到微信公众平台)</span>
+                    </label>
+                    <div style="display: flex; gap: 8px; align-items: center; padding: 10px; background: #1f1f1f; border: 1px solid #444; border-radius: 6px;">
+                        <input type="text" id="wechat-server-url-display" readonly
+                               style="flex: 1; background: transparent; border: none; color: #4d6bfe; font-size: 12px; outline: none;">
+                        <button type="button" onclick="copyServerUrl()" class="footer-btn" style="border: 1px solid #4d6bfe; color: #4d6bfe; white-space: nowrap; padding: 6px 12px;">
+                            <i class="fas fa-copy"></i> 复制
+                        </button>
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                        <i class="fas fa-info-circle"></i> 将此URL配置到微信公众平台"开发-基本配置-服务器配置"中
+                    </div>
+                    <div style="font-size: 11px; color: #999; margin-top: 4px; padding: 8px; background: #1f1f1f; border-radius: 4px;">
+                        <i class="fas fa-lightbulb"></i> URL格式说明：自动获取当前域名或IP+端口，路径固定为 /wx_mp_cb<br>
+                        例如：https://chat.aigcqun.cn/wx_mp_cb?config_id=1
+                    </div>
+                </div>
+
+                <!-- 消息加解密说明 -->
+                <div style="background: #1f1f1f; border: 1px solid #333; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                    <div style="color: #4d6bfe; font-size: 12px; margin-bottom: 8px;">
+                        <i class="fas fa-shield-alt"></i> 消息加解密方式说明
+                    </div>
+                    <div style="font-size: 11px; color: #999; line-height: 1.6;">
+                        • <strong style="color: #ccc;">安全模式（推荐）</strong>：使用消息加解密，纯密文，安全系数高<br>
+                        • 兼容模式：明文、密文共存，不建议使用<br>
+                        • 明文模式：不使用加解密，安全系数低，不建议使用<br>
+                        <div style="margin-top: 6px; color: #4d6bfe;">
+                            <i class="fas fa-check-circle"></i> 本系统支持安全模式，请在微信公众平台选择"安全模式"
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 关联知识库ID -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">关联知识库ID（可选）</label>
+                    <input type="text" id="wechat-kb-id" placeholder="留空则使用普通对话模式"
+                           style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px;">
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">配置后将使用RAG模式基于知识库回答问题</div>
+                </div>
+
+                <!-- 欢迎消息 -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">欢迎消息（可选）</label>
+                    <textarea id="wechat-welcome" placeholder="用户关注时的欢迎消息" rows="2"
+                           style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px; resize: vertical;"></textarea>
+                </div>
+
+                <!-- 默认回复 -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="color: #999; font-size: 12px; margin-bottom: 5px; display: block;">默认回复（可选）</label>
+                    <textarea id="wechat-default-reply" placeholder="AI无法回答时的默认消息" rows="2"
+                           style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px; resize: vertical;"></textarea>
+                </div>
+
+                <!-- 启用选项 -->
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="wechat-enable-ai" checked style="margin-right: 8px;">
+                        <span style="color: #ccc; font-size: 14px;">启用公众号/服务号接入</span>
+                    </label>
+                </div>
+
+                <div class="input-group" style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="wechat-is-active" checked style="margin-right: 8px;">
+                        <span style="color: #ccc; font-size: 14px;">启用此配置</span>
+                    </label>
+                </div>
+
+                <!-- 按钮 -->
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="footer-btn" onclick="closeWechatConfigModal()" style="border: 1px solid #444;">取消</button>
+                    <button type="submit" class="primary-btn" id="wechat-save-btn">保存配置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal-overlay hidden" id="reset-pwd-modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="modal-title">重置密码</div>
+                <i class="fas fa-times" onclick="closeResetPwdModal()" style="cursor: pointer; font-size: 18px; color: #999;"></i>
+            </div>
+            <p id="reset-pwd-username" style="color:#aaa; margin-bottom:16px; font-size:13px;"></p>
+            <div style="margin-bottom:15px;">
+                <label style="color:#999; font-size:12px; display:block; margin-bottom:5px;">新密码</label>
+                <input type="password" id="reset-pwd-input" placeholder="输入新密码"
+                    style="width:100%; padding:10px; background:#2d2d2d; border:1px solid #444; color:white; border-radius:6px;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="footer-btn" onclick="closeResetPwdModal()" style="border:1px solid #444;">取消</button>
+                <button class="primary-btn" onclick="confirmResetPassword()">确认重置</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
