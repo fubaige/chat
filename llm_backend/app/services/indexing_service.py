@@ -331,13 +331,15 @@ class IndexingService:
                 logger.warning(f"找不到特定配置文件 {config_path}，退回到默认配置")
                 config_path = Path(self.data_dir) / self.default_config
             
-            # 设置配置覆盖
+            # 设置配置覆盖，确保在 Docker 环境下使用相对于 data_dir 的相对路径
             try:
+                # 统一使用 / 作为路径分隔符，避免 Windows 宿主机部署时的兼容性问题
                 rel_input_dir = os.path.relpath(user_input_dir, self.data_dir).replace('\\', '/')
-                rel_output_dir = str(user_output_dir).replace('\\', '/')
-            except Exception:
-                rel_input_dir = "input"
-                rel_output_dir = "output"
+                rel_output_dir = os.path.relpath(user_output_dir, self.data_dir).replace('\\', '/')
+            except Exception as e:
+                logger.warning(f"路径相对化失败，回退到基础定义: {e}")
+                rel_input_dir = f"input/{user_uuid}/{record_id}" if record_id else f"input/{user_uuid}"
+                rel_output_dir = f"output/{user_uuid}/{record_id}" if record_id else f"output/{user_uuid}"
             
             # 探测提取后的实际文件扩展名，动态调整 pattern
             # 优先查找 .txt 文件（MinerU 或本地提取的结果）

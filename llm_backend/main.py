@@ -897,42 +897,48 @@ async def get_knowledge_chunks(item_id: int, current_user: User = Depends(get_cu
 
         text_units_path = os.path.join(storage_dir, "text_units.parquet")
         documents_path = os.path.join(storage_dir, "documents.parquet")
+        
+        # 【全栈专家补丁】增加详细调试日志，追踪物理文件查找过程
+        logger.info(f"Targeting Parquet data: text_units={text_units_path}, exists={os.path.exists(text_units_path)}")
 
         if not os.path.exists(text_units_path):
-            return {"chunks": [], "message": "未找到文本块数据"}
+            return {"chunks": [], "message": f"未找到文本块数据 (Path: {text_units_path})"}
 
         import pandas as pd
-
         df_text = await asyncio.to_thread(pd.read_parquet, text_units_path)
 
-        # 通过 documents.parquet 找到当前文件对应的 document_id 集合
+        # 【核心逻辑升级】判定是否为按文档 record_id 隔离的新型目录结构
+        # 新结构下 doc_output_dir = .../output/{user_uuid}/{item_id}
+        # 如果是新结构，物理上文件夹已保证了数据归属，不需要再用文件名进行脆弱的二次过滤
+        is_isolated = (output_dir == doc_output_dir)
         matched_doc_ids: set = set()
-        if os.path.exists(documents_path):
-            df_docs = await asyncio.to_thread(pd.read_parquet, documents_path)
-            # documents 里的 title 通常是去掉扩展名的文件名，raw_content_path 是完整路径
-            # 用原始文件名（去扩展名）和完整文件名两种方式匹配
-            original_stem = os.path.splitext(item.original_name)[0]
-            for _, doc_row in df_docs.iterrows():
-                title = str(doc_row.get("title", ""))
-                raw_path = str(doc_row.get("raw_content_path", ""))
-                # 匹配：title 包含原始文件名（去扩展名），或路径包含原始文件名
-                if (original_stem in title or
-                    item.original_name in title or
-                    item.original_name in raw_path or
-                    original_stem in os.path.basename(raw_path)):
-                    matched_doc_ids.add(str(doc_row.get("id", "")))
+
+        if is_isolated:
+            logger.info(f"Detected ISOLATED structure for ID {item_id}, bypassing filename filter.")
+        else:
+            # 旧结构（用户级目录）仍需过滤
+            if os.path.exists(documents_path):
+                df_docs = await asyncio.to_thread(pd.read_parquet, documents_path)
+                original_stem = os.path.splitext(item.original_name)[0]
+                for _, doc_row in df_docs.iterrows():
+                    title = str(doc_row.get("title", ""))
+                    raw_path = str(doc_row.get("raw_content_path", ""))
+                    if (original_stem in title or
+                        item.original_name in title or
+                        item.original_name in raw_path or
+                        original_stem in os.path.basename(raw_path)):
+                        matched_doc_ids.add(str(doc_row.get("id", "")))
 
         chunks = []
         for idx, row in df_text.iterrows():
-            # 如果找到了文档映射，按 document_ids 过滤；否则返回全部（兼容旧索引）
-            if matched_doc_ids:
+            # 新隔离模式：直接全量返回（因为文件夹里只有这一个文件的块）
+            # 旧模式：仍然按 matched_doc_ids 过滤
+            if not is_isolated and matched_doc_ids:
                 doc_ids = row.get("document_ids", [])
-                if doc_ids is None:
-                    doc_ids = []
-                # document_ids 可能是 list 或 numpy array
-                row_doc_ids = {str(d) for d in doc_ids}
+                row_doc_ids = {str(d) for d in (doc_ids if doc_ids is not None else [])}
                 if not row_doc_ids.intersection(matched_doc_ids):
                     continue
+            
             chunks.append({
                 "id": str(row.get("id", idx)),
                 "text": str(row.get("text", "")),
