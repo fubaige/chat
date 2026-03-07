@@ -74,6 +74,13 @@ SETTINGS_META = [
     {"key": "GRAPHRAG_RESPONSE_TYPE", "group": "graphrag", "label": "GraphRAG 响应类型", "type": "string", "sort": 93},
     {"key": "GRAPHRAG_COMMUNITY_LEVEL", "group": "graphrag", "label": "GraphRAG 社区级别", "type": "int", "sort": 94},
     {"key": "GRAPHRAG_DYNAMIC_COMMUNITY", "group": "graphrag", "label": "动态社区选择", "type": "bool", "sort": 95},
+    # --- GraphRAG LLM & Embedding (新增以解决 KeyError) ---
+    {"key": "GRAPHRAG_API_BASE", "group": "graphrag", "label": "GraphRAG LLM 地址", "type": "string", "sort": 100},
+    {"key": "GRAPHRAG_API_KEY", "group": "graphrag", "label": "GraphRAG LLM Key", "type": "password", "sort": 101},
+    {"key": "GRAPHRAG_MODEL_NAME", "group": "graphrag", "label": "GraphRAG 模型", "type": "string", "sort": 102},
+    {"key": "Embedding_API_BASE", "group": "graphrag", "label": "GraphRAG 向量地址", "type": "string", "sort": 103},
+    {"key": "Embedding_API_KEY", "group": "graphrag", "label": "GraphRAG 向量 Key", "type": "password", "sort": 104},
+    {"key": "Embedding_MODEL_NAME", "group": "graphrag", "label": "GraphRAG 向量模型", "type": "string", "sort": 105},
 ]
 
 # 分组显示名称
@@ -178,6 +185,14 @@ class Settings(BaseSettings):
     GRAPHRAG_RESPONSE_TYPE: str = "text"
     GRAPHRAG_COMMUNITY_LEVEL: int = 3
     GRAPHRAG_DYNAMIC_COMMUNITY: bool = False
+
+    # GraphRAG LLM & Embedding (Initial values from .env or defaults)
+    GRAPHRAG_API_BASE: str = "https://api.deepseek.com"
+    GRAPHRAG_API_KEY: str = ""
+    GRAPHRAG_MODEL_NAME: str = "deepseek-chat"
+    Embedding_API_BASE: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    Embedding_API_KEY: str = ""
+    Embedding_MODEL_NAME: str = "text-embedding-v4"
 
     @property
     def DATABASE_URL(self) -> str:

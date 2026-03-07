@@ -87,35 +87,6 @@ class IndexingService:
             'image/png': 'settings.yaml'
         }
         
-    def _load_graphrag_env(self):
-        """加载 GraphRAG 专用的环境变量"""
-        env_path = os.path.join(self.data_dir, ".env")
-        if os.path.exists(env_path):
-            try:
-                from dotenv import load_dotenv
-                load_dotenv(env_path, override=True)
-                logger.debug(f"已加载 GraphRAG 专用环境变量: {env_path}")
-            except Exception as e:
-                logger.error(f"加载 GraphRAG 环境变量失败: {e}")
-
-    def _load_env_as_dict(self) -> Dict[str, str]:
-        """将 .env 文件解析为字典，用于配置覆盖"""
-        env_dict = {}
-        env_path = os.path.join(self.data_dir, ".env")
-        if os.path.exists(env_path):
-            try:
-                with open(env_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-                        if '=' in line:
-                            key, val = line.split('=', 1)
-                            env_dict[key.strip()] = val.strip().strip('"').strip("'")
-            except Exception as e:
-                logger.error(f"解析 .env 文件失败: {e}")
-        return env_dict
-        
     def _get_file_type(self, file_path: str) -> str:
         """获取文件MIME类型"""
         mime_type, _ = mimetypes.guess_type(file_path)
@@ -349,9 +320,7 @@ class IndexingService:
             if not config_path.exists():
                 raise FileNotFoundError(f"Cannot find GraphRAG config file at {config_path}")
             
-            # 确保加载了正确的环境变量
-            self._load_graphrag_env()
-            
+            # 查找配置文件
             # 设置配置覆盖，input/output 均指向文档独立目录
             try:
                 rel_input_dir = os.path.relpath(user_input_dir, self.data_dir).replace('\\', '/')
@@ -368,21 +337,14 @@ class IndexingService:
                 file_type_override = 'text'
                 pattern = r".*\.txt$"
             
-            # 读取 .env 变量并显式注入配置覆盖，防止环境变量展开失败导致的 KeyError
-            env_vars = self._load_env_as_dict()
-            
-            config_overrides = {
-                'input.base_dir': rel_input_dir,
-                'output.base_dir': rel_output_dir,
-                'input.file_type': file_type_override,
                 'input.file_pattern': pattern,
                 # 显式注入 LLM 和 Embedding 配置，防止环境变量展开失效
-                'models.default_chat_model.api_base': env_vars.get('GRAPHRAG_API_BASE'),
-                'models.default_chat_model.api_key': env_vars.get('GRAPHRAG_API_KEY'),
-                'models.default_chat_model.model': env_vars.get('GRAPHRAG_MODEL_NAME'),
-                'models.default_embedding_model.api_base': env_vars.get('Embedding_API_BASE'),
-                'models.default_embedding_model.api_key': env_vars.get('Embedding_API_KEY'),
-                'models.default_embedding_model.model': env_vars.get('Embedding_MODEL_NAME'),
+                'models.default_chat_model.api_base': settings.GRAPHRAG_API_BASE,
+                'models.default_chat_model.api_key': settings.GRAPHRAG_API_KEY,
+                'models.default_chat_model.model': settings.GRAPHRAG_MODEL_NAME,
+                'models.default_embedding_model.api_base': settings.Embedding_API_BASE,
+                'models.default_embedding_model.api_key': settings.Embedding_API_KEY,
+                'models.default_embedding_model.model': settings.Embedding_MODEL_NAME,
                 # 索引时用绝对路径，确保和查询时路径完全一致
                 'vector_store.default_vector_store.db_uri': str(Path(user_output_dir).resolve() / 'lancedb'),
             }
@@ -486,6 +448,17 @@ class IndexingService:
         # 必须在线程中创建并设置事件循环，GraphRAG 内部多处依赖 asyncio.get_event_loop()
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
+        
+        # 显式注入环境变量解决 KeyError
+        # 这是为了确保 GraphRAG 的 load_config 能够解析 settings.yaml 中的 ${VAR}
+        os.environ["GRAPHRAG_API_BASE"] = settings.GRAPHRAG_API_BASE
+        os.environ["GRAPHRAG_API_KEY"] = settings.GRAPHRAG_API_KEY
+        os.environ["GRAPHRAG_MODEL_NAME"] = settings.GRAPHRAG_MODEL_NAME
+        os.environ["Embedding_API_BASE"] = settings.Embedding_API_BASE
+        os.environ["Embedding_API_KEY"] = settings.Embedding_API_KEY
+        os.environ["Embedding_MODEL_NAME"] = settings.Embedding_MODEL_NAME
+        
+        logger.info(f"[线程] 环境变量已注入: GRAPHRAG_API_BASE={settings.GRAPHRAG_API_BASE}")
         
         data_dir_path = Path(data_dir_str)
         config_file_path = Path(config_path_str)
