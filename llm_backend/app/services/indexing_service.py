@@ -88,8 +88,19 @@ class IndexingService:
         }
         
     def _get_file_type(self, file_path: str) -> str:
-        """获取文件MIME类型"""
+        """获取文件MIME类型，增强对 .docx/.pdf 等后缀的识别"""
         mime_type, _ = mimetypes.guess_type(file_path)
+        
+        # 兜底逻辑：如果 mimetypes 识别为二进制流或无法识别，则根据后缀强行转换
+        if not mime_type or mime_type == 'application/octet-stream':
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext == '.docx':
+                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            elif ext == '.pdf':
+                return 'application/pdf'
+            elif ext == '.txt':
+                return 'text/plain'
+        
         return mime_type or 'application/octet-stream'
     
     def _get_config_file(self, file_type: str) -> str:
@@ -313,29 +324,34 @@ class IndexingService:
             # 检查是否需要增量更新
             is_update = self._check_existing_index(input_file_path, user_output_dir)
             
-            # 准备配置路径
-            config_path = (self.data_dir / config_file).resolve()
-            if not config_path.exists():
-                config_path = (self.data_dir / self.default_config).resolve()
-            if not config_path.exists():
-                raise FileNotFoundError(f"Cannot find GraphRAG config file at {config_path}")
-            
             # 查找配置文件
-            # 设置配置覆盖，input/output 均指向文档独立目录
+            config_file = self._get_config_file(file_type)
+            config_path = Path(self.data_dir) / config_file
+            if not config_path.exists():
+                logger.warning(f"找不到特定配置文件 {config_path}，退回到默认配置")
+                config_path = Path(self.data_dir) / self.default_config
+            
+            # 设置配置覆盖
             try:
                 rel_input_dir = os.path.relpath(user_input_dir, self.data_dir).replace('\\', '/')
-                rel_output_dir = os.path.relpath(user_output_dir, self.data_dir).replace('\\', '/')
-            except ValueError:
-                rel_input_dir = str(user_input_dir).replace('\\', '/')
                 rel_output_dir = str(user_output_dir).replace('\\', '/')
+            except Exception:
+                rel_input_dir = "input"
+                rel_output_dir = "output"
             
-            ext = os.path.splitext(input_file_path)[1].lower()
-            if ext == '.pdf':
+            # 探测提取后的实际文件扩展名，动态调整 pattern
+            # 优先查找 .txt 文件（MinerU 或本地提取的结果）
+            txt_files = list(Path(user_input_dir).glob("*.txt"))
+            if txt_files:
+                file_type_override = 'text'
+                pattern = r".*\.txt$"
+            elif file_type == 'application/pdf':
                 file_type_override = 'pdf'
                 pattern = r".*\.pdf$"
             else:
                 file_type_override = 'text'
-                pattern = r".*\.txt$"
+                pattern = r".*\.txt$" # GraphRAG 默认行为
+            
             config_overrides = {
                 'input.base_dir': rel_input_dir,
                 'output.base_dir': rel_output_dir,
