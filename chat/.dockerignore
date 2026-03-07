@@ -1,0 +1,90 @@
+# ============================================
+# Python 缓存和测试文件
+# ============================================
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.hypothesis/
+**/*.egg-info/
+**/.eggs/
+
+# ============================================
+# 开发工具和 IDE
+# ============================================
+**/.vscode/
+**/.idea/
+**/.git/
+**/.gitignore
+**/.gitattributes
+
+# ============================================
+# 日志和运行时数据（容器内会重新生成）
+# ============================================
+**/logs/
+**/log/
+**/*.log
+uploads/
+llm_backend/uploads/
+
+# ============================================
+# GraphRAG 源码仓库中的非运行时目录
+# 只保留 graphrag/ 核心包 + data/ 配置/prompt 文件，排除文档/示例/生成数据
+# ============================================
+llm_backend/app/graphrag/.github/
+llm_backend/app/graphrag/course/
+llm_backend/app/graphrag/dev/
+llm_backend/app/graphrag/docs/
+llm_backend/app/graphrag/examples_notebooks/
+llm_backend/app/graphrag/origin_data/
+llm_backend/app/graphrag/index/
+llm_backend/app/graphrag/scripts/
+# data/ 下只排除运行时生成的目录，保留 prompts/、settings.yaml、prompt_turn_output/ 等配置文件
+llm_backend/app/graphrag/data/input/
+llm_backend/app/graphrag/data/output/
+llm_backend/app/graphrag/data/cache/
+llm_backend/app/graphrag/data/logs/
+llm_backend/app/graphrag/data/pdf_csv_exports/
+llm_backend/app/graphrag/data/pdf_outputs/
+llm_backend/app/graphrag/poetry.lock
+llm_backend/app/graphrag/CHANGELOG.md
+llm_backend/app/graphrag/CODE_OF_CONDUCT.md
+llm_backend/app/graphrag/CONTRIBUTING.md
+llm_backend/app/graphrag/DEVELOPING.md
+llm_backend/app/graphrag/RAI_TRANSPARENCY.md
+llm_backend/app/graphrag/README.md
+llm_backend/app/graphrag/SECURITY.md
+llm_backend/app/graphrag/SUPPORT.md
+llm_backend/app/graphrag/breaking-changes.md
+llm_backend/app/graphrag/mkdocs.yaml
+llm_backend/app/graphrag/cspell.config.yaml
+llm_backend/app/graphrag/dictionary.txt
+llm_backend/app/graphrag/.vsts-ci.yml
+
+# ============================================
+# wx-mp-svr 源码（已通过 pip 安装，不需要源码）
+# ============================================
+wx-mp-svr-main/
+
+# ============================================
+# 脚本和文档（运行时不需要）
+# ============================================
+llm_backend/scripts/
+llm_backend/migrations/
+llm_backend/.hypothesis/
+llm_backend/.pytest_cache/
+llm_backend/run_reindex.bat
+llm_backend/run_reindex.sh
+
+# ============================================
+# 独立部署相关文件（Docker 内不需要）
+# ============================================
+deploy.sh
+start.sh
+start.bat
+1.sh
+*.md
+.env.example
+docker-compose.yml
+diagnose_kb.py

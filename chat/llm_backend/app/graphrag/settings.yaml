@@ -1,0 +1,171 @@
+﻿### This config file contains required core defaults that must be set, along with a handful of common optional settings.
+### For a full list of available settings, see https://microsoft.github.io/graphrag/config/yaml/
+
+### LLM settings ###
+## There are a number of settings to tune the threading and token limits for LLM calls - check the docs.
+
+models:
+  default_chat_model:
+    type: openai_chat # or azure_openai_chat
+    api_base: ${GRAPHRAG_API_BASE}
+    auth_type: api_key
+    api_key: ${GRAPHRAG_API_KEY}
+    model: ${GRAPHRAG_MODEL_NAME}
+    encoding_model: cl100k_base
+    model_supports_json: false
+    concurrent_requests: 25
+    async_mode: threaded
+    retry_strategy: native
+    max_retries: -1
+    tokens_per_minute: 500000
+    requests_per_minute: 5000
+  default_embedding_model:
+    type: openai_embedding
+    api_base: ${Embedding_API_BASE}
+    auth_type: api_key
+    api_key: ${Embedding_API_KEY}
+    model: ${Embedding_MODEL_NAME}
+    dimensions: 1024
+    encoding_model: cl100k_base
+    model_supports_json: true
+    concurrent_requests: 25
+    async_mode: threaded
+    retry_strategy: native
+    max_retries: -1
+    tokens_per_minute: 500000
+    requests_per_minute: 5000
+    batch_size: 5
+
+vector_store:
+  default_vector_store:
+    type: lancedb
+    db_uri: output\text_lancedb
+    container_name: default
+    overwrite: True
+
+embed_text:
+  model_id: default_embedding_model
+  vector_store_id: default_vector_store
+
+## Input settings ###
+# input:
+#   type: file # or blob
+#   file_type: text # or csv
+#   base_dir: "input"
+#   file_encoding: utf-8
+#   file_pattern: ".*\\.(txt)$$"
+
+
+# input:
+#   type: file # or blob
+#   file_type: csv
+#   base_dir: "input"
+#   file_encoding: utf-8
+#   file_pattern: ".*\\.csv$$"
+#   text_column: "text"  # 濡傛灉鍘熷鏁版嵁涓病鏈塼ext瀛楁锛屽垯闇€瑕佹寚瀹氫竴涓寘鍚枃鏈唴瀹圭殑瀛楁
+
+# input:
+#   type: file # or blob
+#   file_type: pdf # or csv
+#   base_dir: "input"
+#   file_encoding: utf-8
+#   file_pattern: ".*\\.pdf$$"
+
+chunks:
+  # strategy: markdown  # 鑷畾涔夊弬鏁?  size: 500
+  overlap: 100
+  group_by_columns: [id]
+  # prepend_metadata: true
+
+### Output settings ###
+## If blob storage is specified in the following four sections,
+## connection_string and container_name must be provided
+
+cache:
+  type: file # [file, blob, cosmosdb]
+  base_dir: "text_cache"
+
+reporting:
+  type: file # [file, blob, cosmosdb]
+  base_dir: "text_logs"
+
+output:
+  type: file # [file, blob, cosmosdb]
+  base_dir: "text_output"
+
+### Workflow settings ###
+
+extract_graph:
+  model_id: default_chat_model
+  prompt: "prompt_turn_output/extract_graph_zh.txt"
+  entity_types: [organization,person,geo,event]
+  max_gleanings: 1
+
+
+# extract_graph:
+#   model_id: default_chat_model
+#   prompt: "prompt_turn_output/extract_graph_turn_zh.txt"
+#   entity_types: [customer_id, company, location, product, manufacturer, product_category, price, rating, review_date, review_content]
+#   max_gleanings: 1
+
+summarize_descriptions:
+  model_id: default_chat_model
+  prompt: "prompt_turn_output/summarize_descriptions_zh.txt"
+  max_length: 500
+
+extract_graph_nlp:
+  text_analyzer:
+    extractor_type: regex_english # [regex_english, syntactic_parser, cfg]
+
+extract_claims:
+  enabled: false
+  model_id: default_chat_model
+  prompt: "prompts/extract_claims.txt"
+  description: "Any claims or facts that could be relevant to information discovery."
+  max_gleanings: 1
+
+community_reports:
+  model_id: default_chat_model
+  graph_prompt: "prompt_turn_output/community_report_graph_zh.txt"
+  text_prompt: "prompts/community_report_text_zh.txt"
+  max_length: 2000
+  max_input_length: 8000
+
+cluster_graph:
+  max_cluster_size: 10
+
+embed_graph:
+  enabled: true # if true, will generate node2vec embeddings for nodes
+
+umap:
+  enabled: false # if true, will generate UMAP embeddings for nodes (embed_graph must also be enabled)
+
+snapshots:
+  graphml: false
+  embeddings: false
+
+### Query settings ###
+## The prompt locations are required here, but each search method has a number of optional knobs that can be tuned.
+## See the config docs: https://microsoft.github.io/graphrag/config/yaml/#query
+
+local_search:
+  chat_model_id: default_chat_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/local_search_system_prompt.txt"
+
+global_search:
+  chat_model_id: default_chat_model
+  map_prompt: "prompts/global_search_map_system_prompt.txt"
+  reduce_prompt: "prompts/global_search_reduce_system_prompt.txt"
+  knowledge_prompt: "prompts/global_search_knowledge_system_prompt.txt"
+
+drift_search:
+  chat_model_id: default_chat_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/drift_search_system_prompt.txt"
+  reduce_prompt: "prompts/drift_search_reduce_prompt.txt"
+
+basic_search:
+  chat_model_id: default_chat_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/basic_search_system_prompt.txt"
