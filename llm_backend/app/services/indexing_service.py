@@ -97,6 +97,24 @@ class IndexingService:
                 logger.debug(f"已加载 GraphRAG 专用环境变量: {env_path}")
             except Exception as e:
                 logger.error(f"加载 GraphRAG 环境变量失败: {e}")
+
+    def _load_env_as_dict(self) -> Dict[str, str]:
+        """将 .env 文件解析为字典，用于配置覆盖"""
+        env_dict = {}
+        env_path = os.path.join(self.data_dir, ".env")
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if '=' in line:
+                            key, val = line.split('=', 1)
+                            env_dict[key.strip()] = val.strip().strip('"').strip("'")
+            except Exception as e:
+                logger.error(f"解析 .env 文件失败: {e}")
+        return env_dict
         
     def _get_file_type(self, file_path: str) -> str:
         """获取文件MIME类型"""
@@ -350,11 +368,21 @@ class IndexingService:
                 file_type_override = 'text'
                 pattern = r".*\.txt$"
             
+            # 读取 .env 变量并显式注入配置覆盖，防止环境变量展开失败导致的 KeyError
+            env_vars = self._load_env_as_dict()
+            
             config_overrides = {
                 'input.base_dir': rel_input_dir,
                 'output.base_dir': rel_output_dir,
                 'input.file_type': file_type_override,
                 'input.file_pattern': pattern,
+                # 显式注入 LLM 和 Embedding 配置，防止环境变量展开失效
+                'models.default_chat_model.api_base': env_vars.get('GRAPHRAG_API_BASE'),
+                'models.default_chat_model.api_key': env_vars.get('GRAPHRAG_API_KEY'),
+                'models.default_chat_model.model': env_vars.get('GRAPHRAG_MODEL_NAME'),
+                'models.default_embedding_model.api_base': env_vars.get('Embedding_API_BASE'),
+                'models.default_embedding_model.api_key': env_vars.get('Embedding_API_KEY'),
+                'models.default_embedding_model.model': env_vars.get('Embedding_MODEL_NAME'),
                 # 索引时用绝对路径，确保和查询时路径完全一致
                 'vector_store.default_vector_store.db_uri': str(Path(user_output_dir).resolve() / 'lancedb'),
             }

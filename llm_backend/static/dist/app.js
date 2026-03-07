@@ -46,7 +46,8 @@ const elements = {
     authTitle: document.getElementById('auth-title'),
     authToggleText: document.getElementById('auth-toggle-text'),
     authToggleLink: document.getElementById('auth-toggle-link'),
-    agentConfigView: document.getElementById('agent-config-view')
+    agentConfigView: document.getElementById('agent-config-view'),
+    kbUploadBtn: document.getElementById('kb-upload-btn')
 };
 
 let currentImage = null;
@@ -894,36 +895,46 @@ function removePendingFile(idx) {
 async function uploadKbFiles() {
     if (pendingUploads.length === 0) return;
     
-    const btn = document.querySelector('.primary-btn');
-    const originalText = btn.textContent;
-    btn.textContent = '上传中...';
+    console.log("[DEBUG] 开始上传选定的知识库文件, 数量:", pendingUploads.length);
+    const btn = elements.kbUploadBtn;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上传中...';
     btn.disabled = true;
 
     try {
         for (const file of pendingUploads) {
+            console.log("[DEBUG] 正在上传文件:", file.name);
             const formData = new FormData();
             formData.append('file', file);
             formData.append('user_id', state.userId);
             
-            await fetch('/api/upload', {
+            const res = await fetch('/api/upload', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${state.token}`
                 },
                 body: formData
             });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.detail || "上传失败");
+            }
         }
         
+        console.log("[DEBUG] 所有文件上传并请求索引成功");
         closeUploadModal();
         alert('上传成功！后台正在建立索引，请稍候。');
         await loadKbFiles();
         startKbPolling();
         
     } catch (e) {
+        console.error("[ERROR] 知识库上传过程出错:", e);
         alert('上传失败: ' + e.message);
     } finally {
-        btn.textContent = originalText;
+        btn.innerHTML = originalHtml;
         btn.disabled = false;
+        console.log("[DEBUG] 上传按钮状态已恢复");
     }
 }
 
