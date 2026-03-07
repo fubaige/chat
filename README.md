@@ -1,7 +1,7 @@
 # Ai聊天客服+知识库+公众号/服务号自动回复 一键部署与使用文档
-https://wecom-ai.oss-cn-beijing.aliyuncs.com/github/1.png
-https://wecom-ai.oss-cn-beijing.aliyuncs.com/github/2.png
-https://wecom-ai.oss-cn-beijing.aliyuncs.com/github/3.png
+<img src="https://wecom-ai.oss-cn-beijing.aliyuncs.com/github/1.png" style="max-width: 100%; height: auto;">
+<img src="https://wecom-ai.oss-cn-beijing.aliyuncs.com/github/2.png" style="max-width: 100%; height: auto;">
+<img src="https://wecom-ai.oss-cn-beijing.aliyuncs.com/github/3.png" style="max-width: 100%; height: auto;">
 ## 项目介绍
 智能客服和对话 AI 系统后端架构，提供完善的会话与大模型交互能力。支持 Docker 化部署，提供统一的一键执行脚本，并兼容云端虚拟主机的快速上线。
 
