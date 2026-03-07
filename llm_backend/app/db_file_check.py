@@ -1,44 +1,63 @@
 import uuid
 import os
 import sys
-import pandas as pd
-from sqlalchemy import create_engine, text
+import asyncio
+from pathlib import Path
 
-# 数据库连接（容器内使用 mysql 主机名）
-DB_URL = "mysql+pymysql://chat_aigcqun_cn:f6WzA5XenzCPh4wS@mysql:3306/chat_aigcqun_cn"
-engine = create_engine(DB_URL)
+# 设置模块搜索路径，确保能导入 app
+sys.path.append("/app")
 
-def check():
-    with engine.connect() as conn:
-        # 1. 检查 item 96
-        result = conn.execute(text("SELECT id, user_id, original_name, status FROM knowledge_base WHERE id = 96"))
-        row = result.fetchone()
-        if row:
-            item_id, user_id, name, status = row
-            print(f"--- DB Record 96 ---")
-            print(f"ID: {item_id}, UserID: {user_id}, Name: {name}, Status: {status}")
-            
-            # 2. 计算预期 UUID
-            expected_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"user_{user_id}"))
-            print(f"Expected UUID (user_{user_id}): {expected_uuid}")
-            
-            # 3. 检查物理目录
-            base_dir = "/app/app/graphrag/data/output"
-            expected_path = os.path.join(base_dir, expected_uuid, str(item_id))
-            print(f"Expected Path: {expected_path}")
-            print(f"Path exists: {os.path.exists(expected_path)}")
-            
-            if os.path.exists(expected_path):
-                print(f"Contents of {expected_path}: {os.listdir(expected_path)}")
+async def check():
+    try:
+        from app.core.config import settings
+        from app.core.database import AsyncSessionLocal
+        from app.models.knowledge_base import KnowledgeBase
+        from sqlalchemy import select
+        
+        print(f"--- Settings Check ---")
+        print(f"GRAPHRAG_PROJECT_DIR: {settings.GRAPHRAG_PROJECT_DIR}")
+        print(f"GRAPHRAG_DATA_DIR: {settings.GRAPHRAG_DATA_DIR}")
+        
+        async with AsyncSessionLocal() as session:
+            # 1. 检查 item 96
+            result = await session.execute(select(KnowledgeBase).where(KnowledgeBase.id == 96))
+            item = result.scalar_one_or_none()
+            if item:
+                print(f"\n--- DB Record 96 ---")
+                print(f"ID: {item.id}, UserID: {item.user_id}, Name: {item.original_name}, Status: {item.status}")
                 
-            # 4. 列出 output 下所有文件夹
-            if os.path.exists(base_dir):
-                print(f"\nExisting folders in {base_dir}:")
-                for d in os.listdir(base_dir):
-                    if os.path.isdir(os.path.join(base_dir, d)):
-                        print(f"  - {d}")
-        else:
-            print("Record 96 not found in DB")
+                # 2. 计算预期 UUID
+                user_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"user_{item.user_id}"))
+                print(f"Expected UUID (user_{item.user_id}): {user_uuid}")
+                
+                # 3. 按照 main.py 的逻辑拼接路径
+                project_dir = settings.GRAPHRAG_PROJECT_DIR
+                data_dir = settings.GRAPHRAG_DATA_DIR
+                output_dir = os.path.join(project_dir, data_dir, "output", user_uuid, str(item.id))
+                print(f"Expected Main.py Path: {output_dir}")
+                print(f"Path exists: {os.path.exists(output_dir)}")
+                
+                if os.path.exists(output_dir):
+                    print(f"Contents: {os.listdir(output_dir)}")
+                
+                # 4. 暴力搜索 output 目录
+                base_output = os.path.join(project_dir, data_dir, "output")
+                print(f"\n--- Output Directory Scan [{base_output}] ---")
+                if os.path.exists(base_output):
+                    for d in os.listdir(base_output):
+                        d_path = os.path.join(base_output, d)
+                        if os.path.isdir(d_path):
+                            print(f"User Folder: {d}")
+                            # 看看里面有没有 96
+                            sub_path = os.path.join(d_path, "96")
+                            if os.path.exists(sub_path):
+                                print(f"  FOUND ID 96 in {d}!")
+            else:
+                print("Record 96 not found in DB")
+    except Exception as e:
+        print(f"Diagnostic failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    check()
+    asyncio.run(check())
