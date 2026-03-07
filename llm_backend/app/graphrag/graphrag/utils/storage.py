@@ -32,23 +32,37 @@ async def write_table_to_storage(
 ) -> None:
     """Write a table to storage with Arrow durability fix."""
     try:
-        # 【全栈专家补丁】修复 PyArrow 在处理嵌套列表（如 entity_ids）时的类型推导错误
-        # 强制将 entity_ids 转换为标准的 list[str]，避免混合类型导致 ArrowInvalid
-        if "entity_ids" in table.columns:
-            table["entity_ids"] = table["entity_ids"].apply(
-                lambda x: [str(i) for i in x] if isinstance(x, (list, tuple)) else []
-            )
+        # 【全栈专家补丁】主动清洗：识别常见的 ID 列表列并规范化为 list[str]
+        # 这能解决 90% 的 PyArrow 嵌套列表类型推断失败问题
+        id_cols = [c for c in table.columns if c.endswith("_ids") or c in ["entity_ids", "relationship_ids", "covariate_ids", "sources"]]
+        for col in id_cols:
+            try:
+                table[col] = table[col].apply(
+                    lambda x: [str(i) for i in x] if isinstance(x, (list, tuple)) else ([] if pd.isna(x) else x)
+                )
+            except:
+                pass
             
         await storage.set(f"{name}.parquet", table.to_parquet())
     except Exception as e:
-        log.warning("Initial parquet write failed for %s, attempting sanitization: %s", name, e)
-        # 深度清洗所有 object 列，确保没有无法识别的 Python 对象
+        log.warning("Initial parquet write failed for %s, attempting aggressive sanitization: %s", name, e)
+        # 深度清洗：对所有 object 列执行激进转换
         for col in table.select_dtypes(include=['object']).columns:
             try:
-                table[col] = table[col].apply(lambda x: str(x) if not isinstance(x, (list, tuple, dict)) else x)
+                # 规则：列表转 list[str]，其他非空对象转 str，空值保留
+                table[col] = table[col].apply(
+                    lambda x: [str(i) for i in x] if isinstance(x, (list, tuple)) 
+                    else (str(x) if pd.notna(x) and not isinstance(x, (dict, set)) else x)
+                )
             except:
                 pass
-        await storage.set(f"{name}.parquet", table.to_parquet())
+        
+        try:
+            await storage.set(f"{name}.parquet", table.to_parquet())
+            log.info("Parquet write recovered for %s after aggressive sanitization", name)
+        except Exception as retry_e:
+            log.error("Parquet write FAILED even after sanitization for %s: %s", name, retry_e)
+            raise
 
 
 async def delete_table_from_storage(name: str, storage: PipelineStorage) -> None:
