@@ -36,23 +36,31 @@ async def write_table_to_storage(
     import json
     
     def atomic_list_unwrapper(x):
-        """深度展开并规范化为 list[str]"""
-        # 0. 首先排除容易引起 pd.isna 歧义的非标量类型
-        is_container = isinstance(x, (list, tuple, np.ndarray))
-        
-        if not is_container and (x is None or pd.isna(x)):
+        """深度展开并规范化为 list[str]，安全处理 Pandas Extension Arrays"""
+        if x is None:
             return []
-        
-        # 1. 递归解包逻辑：如果是一个单元素的列表且里面是字符串形式的列表，先解包
-        if is_container and len(x) == 1 and isinstance(x[0], str):
-            inner = x[0].strip()
-            if inner.startswith('[') and inner.endswith(']'):
-                x = inner
-                is_container = False # 已经变成字符串了
+            
+        # 0. 标量且为空
+        if pd.api.types.is_scalar(x) and pd.isna(x):
+            return []
+            
+        # 1. 判断是否为容器 (非字符串、标量)，适配 Numpy Array 和 Pandas Series/ExtensionArray
+        is_container = pd.api.types.is_list_like(x) and not isinstance(x, (str, bytes, dict))
 
-        # 1. 处理已经是列表或 ndarray 的情况
-        if isinstance(x, (list, tuple, np.ndarray)):
-            return [str(i) for i in x]
+        if is_container:
+            # 统一转为原生 list，消除 DataFrame 内部特殊类型（如 ArrowStringArray）的副作用
+            x_list = list(x)
+            
+            # 递归解包逻辑：如果是一个单元素的列表且里面是字符串形式的列表，先解包
+            if len(x_list) == 1 and isinstance(x_list[0], str):
+                inner = x_list[0].strip()
+                if inner.startswith('[') and inner.endswith(']'):
+                    x = inner
+                    is_container = False # 已经变成字符串了，交由下面的逻辑处理
+                else:
+                    return [str(i) for i in x_list]
+            else:
+                return [str(i) for i in x_list]
         
         # 2. 处理字符串形式的列表 "['a', 'b']"
         if isinstance(x, str):
