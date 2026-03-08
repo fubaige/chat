@@ -30,49 +30,68 @@ async def load_table_from_storage(name: str, storage: PipelineStorage) -> pd.Dat
 async def write_table_to_storage(
     table: pd.DataFrame, name: str, storage: PipelineStorage
 ) -> None:
-    """Write a table to storage with Arrow durability fix."""
-    try:
-        # 【全栈专家补丁】主动清洗：识别常见的 ID 列表列并规范化为 list[str]
-        # 这能解决 PyArrow 嵌套列表类型推断失败（mixed types）的问题
-        # 常见受影响列：entity_ids, relationship_ids, covariate_ids, sources, text_unit_ids
-        id_cols = [c for c in table.columns if c.endswith("_ids") or c in ["entity_ids", "relationship_ids", "covariate_ids", "sources", "text_unit_ids", "document_ids"]]
+    """Write a table to storage with robust type enforcement and sanitization."""
+    import numpy as np
+    import ast
+    
+    def robust_list_sanitizer(x):
+        """确保返回值必然是一个 list[str]"""
+        # 0. 首先排除列表/数组类型，防止 pd.isna 报错 (ambiguous truth value)
+        if isinstance(x, (list, tuple, np.ndarray)):
+            return [str(i) for i in x]
+            
+        if x is None or pd.isna(x):
+            return []
         
-        for col in id_cols:
+        # 2. 处理字符串形式的列表 "['a', 'b']" 或 '["a", "b"]'
+        if isinstance(x, str):
+            trimmed = x.strip()
+            if trimmed.startswith('[') and trimmed.endswith(']'):
+                try:
+                    # 尝试解析字符串列表
+                    import json
+                    try:
+                        parsed = json.loads(trimmed.replace("'", '"'))
+                    except:
+                        parsed = ast.literal_eval(trimmed)
+                    
+                    if isinstance(parsed, (list, tuple)):
+                        return [str(i) for i in parsed]
+                except:
+                    pass
+            # 如果不是列表字符串，或者解析失败，当作单值处理
+            if trimmed:
+                return [trimmed]
+            return []
+            
+        # 3. 其他单值情况，包装进列表
+        return [str(x)]
+
+    try:
+        # 识别关键的列表列
+        list_cols = [c for c in table.columns if c.endswith("_ids") or c in ["entity_ids", "relationship_ids", "covariate_ids", "sources", "text_unit_ids", "document_ids"]]
+        
+        for col in list_cols:
             try:
-                # 严格转换逻辑：
-                # 1. 如果是列表/元组，强制转为 list[str]
-                # 2. 如果是单值（如字符串或ID），包装进列表 [str(x)]
-                # 3. 如果是空值，转为空列表 []
-                # 最终确保该列所有行都是真正的列表对象，且元数据保持一致
-                table[col] = table[col].apply(
-                    lambda x: [str(i) for i in x] if isinstance(x, (list, tuple)) 
-                    else ([str(x)] if pd.notna(x) and str(x).strip() != "" else [])
-                )
+                table[col] = table[col].apply(robust_list_sanitizer)
             except Exception as col_e:
-                log.debug("Column sanitization skipped for %s: %s", col, col_e)
+                log.debug("Column sanitization failed for %s: %s", col, col_e)
             
         await storage.set(f"{name}.parquet", table.to_parquet())
     except Exception as e:
-        log.warning("Initial parquet write failed for %s, attempting aggressive sanitization: %s", name, e)
-        # 深度清洗：对所有非数值列执行激进转换
+        log.warning("Final parquet write failed for %s, attempting emergency stringification: %s", name, e)
+        # 最后的挣扎：如果列表格式还是过不去（比如 PyArrow 内部元数据冲突），将所有 object 列强转为字符串
         for col in table.select_dtypes(include=['object']).columns:
             try:
-                # 更加决断的规则：只要是 object 类型，要么是合法的列表字符串，要么全部转为字符串
-                table[col] = table[col].apply(
-                    lambda x: [str(i) for i in x] if isinstance(x, (list, tuple)) 
-                    else (str(x) if pd.notna(x) else "")
-                )
+                table[col] = table[col].apply(lambda x: str(x) if pd.notna(x) else "")
             except:
                 pass
         
         try:
             await storage.set(f"{name}.parquet", table.to_parquet())
-            log.info("Parquet write recovered for %s after aggressive sanitization", name)
+            log.info("Parquet write recovered for %s after emergency stringification", name)
         except Exception as retry_e:
-            log.error("Parquet write FAILED even after sanitization for %s: %s", name, retry_e)
-            # 输出详细列信息用于调试
-            for c in table.columns:
-                log.error("Column %s dtype: %s, sample: %s", c, table[c].dtype, str(table[c].iloc[0])[:100] if len(table) > 0 else "None")
+            log.error("Parquet write CRITICALLY FAILED for %s: %s", name, retry_e)
             raise
 
 
