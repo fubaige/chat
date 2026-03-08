@@ -30,58 +30,75 @@ async def load_table_from_storage(name: str, storage: PipelineStorage) -> pd.Dat
 async def write_table_to_storage(
     table: pd.DataFrame, name: str, storage: PipelineStorage
 ) -> None:
-    """Write a table to storage with robust type enforcement and sanitization."""
+    """Write a table to storage with Atomic Sanitization and type forcing."""
     import numpy as np
     import ast
+    import json
     
-    def robust_list_sanitizer(x):
-        """确保返回值必然是一个 list[str]"""
-        # 0. 首先排除列表/数组类型，防止 pd.isna 报错 (ambiguous truth value)
-        if isinstance(x, (list, tuple, np.ndarray)):
-            return [str(i) for i in x]
-            
-        if x is None or pd.isna(x):
+    def atomic_list_unwrapper(x):
+        """深度展开并规范化为 list[str]"""
+        # 0. 首先排除容易引起 pd.isna 歧义的非标量类型
+        is_container = isinstance(x, (list, tuple, np.ndarray))
+        
+        if not is_container and (x is None or pd.isna(x)):
             return []
         
-        # 2. 处理字符串形式的列表 "['a', 'b']" 或 '["a", "b"]'
+        # 1. 递归解包逻辑：如果是一个单元素的列表且里面是字符串形式的列表，先解包
+        if is_container and len(x) == 1 and isinstance(x[0], str):
+            inner = x[0].strip()
+            if inner.startswith('[') and inner.endswith(']'):
+                x = inner
+                is_container = False # 已经变成字符串了
+
+        # 1. 处理已经是列表或 ndarray 的情况
+        if isinstance(x, (list, tuple, np.ndarray)):
+            return [str(i) for i in x]
+        
+        # 2. 处理字符串形式的列表 "['a', 'b']"
         if isinstance(x, str):
             trimmed = x.strip()
             if trimmed.startswith('[') and trimmed.endswith(']'):
                 try:
-                    # 尝试解析字符串列表
-                    import json
                     try:
                         parsed = json.loads(trimmed.replace("'", '"'))
                     except:
                         parsed = ast.literal_eval(trimmed)
                     
                     if isinstance(parsed, (list, tuple)):
-                        return [str(i) for i in parsed]
+                        # 递归处理解析后的结果，防止多层嵌套
+                        return [str(i) for i in (parsed if not isinstance(parsed, (list, tuple)) or len(parsed) != 1 or not isinstance(parsed[0], str) or not parsed[0].startswith('[') else atomic_list_unwrapper(parsed))]
                 except:
                     pass
-            # 如果不是列表字符串，或者解析失败，当作单值处理
             if trimmed:
                 return [trimmed]
             return []
             
-        # 3. 其他单值情况，包装进列表
         return [str(x)]
 
     try:
-        # 识别关键的列表列
+        # 1. 识别关键列
         list_cols = [c for c in table.columns if c.endswith("_ids") or c in ["entity_ids", "relationship_ids", "covariate_ids", "sources", "text_unit_ids", "document_ids"]]
+        text_cols = [c for c in table.columns if c in ["id", "text", "description", "name", "title"]]
         
+        # 2. 执行原子级清洗
         for col in list_cols:
-            try:
-                table[col] = table[col].apply(robust_list_sanitizer)
-            except Exception as col_e:
-                log.debug("Column sanitization failed for %s: %s", col, col_e)
+            table[col] = table[col].apply(atomic_list_unwrapper)
+        
+        for col in text_cols:
+            if col in table.columns:
+                table[col] = table[col].apply(lambda x: str(x) if pd.notna(x) else "")
+
+        # 3. 强制显式转换数据类型为 object，消除 PyArrow 自动推断冲突
+        # 重要：对于包含列表的列，必须显式声明为 object
+        for col in table.columns:
+            if col in list_cols:
+                table[col] = table[col].astype(object)
             
         await storage.set(f"{name}.parquet", table.to_parquet())
     except Exception as e:
-        log.warning("Final parquet write failed for %s, attempting emergency stringification: %s", name, e)
-        # 最后的挣扎：如果列表格式还是过不去（比如 PyArrow 内部元数据冲突），将所有 object 列强转为字符串
-        for col in table.select_dtypes(include=['object']).columns:
+        log.warning("Atomic write failed for %s, attempting emergency flat stringification: %s", name, e)
+        # 最终应急处理：平铺所有数据为字符串，宁可丢失列表结构也不让索引中断
+        for col in table.columns:
             try:
                 table[col] = table[col].apply(lambda x: str(x) if pd.notna(x) else "")
             except:
@@ -89,7 +106,7 @@ async def write_table_to_storage(
         
         try:
             await storage.set(f"{name}.parquet", table.to_parquet())
-            log.info("Parquet write recovered for %s after emergency stringification", name)
+            log.info("Parquet write recovered for %s after emergency flat stringification", name)
         except Exception as retry_e:
             log.error("Parquet write CRITICALLY FAILED for %s: %s", name, retry_e)
             raise
