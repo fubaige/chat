@@ -86,7 +86,7 @@ bash deploy.sh
 
 2. **生产环境后台运行**：
 ```bash
-bash 生产.sh start
+sed -i 's/\r$//' 生产.sh && ./生产.sh start
 ```
 支持指令：`start` (启动)、`stop` (停止)、`restart` (重启)、`status` (查看状态)、`logs` (实时查看日志)。
 
