@@ -97,4 +97,34 @@ bash 开发.sh
 将清理占用端口并尝试修复依赖，并实时输出后端调试日志。
 
 ---
+---
 **提示：** 每次新增功能或修改核心逻辑后，请持续在此文档进行补充更新。
+
+## 五、 常见问题 (FAQ)
+
+### 1. 运行脚本提示 `Permission denied` (权限拒绝)
+**问题描述**：执行 `./生产.sh start` 时提示 `bash: ./生产.sh: Permission denied`。
+**原因分析**：Linux 系统下脚本文件未被赋予可执行权限。
+**解决方法**（任选其一）：
+1. **直接赋予权限** (推荐)：
+   ```bash
+   chmod +x *.sh
+   ```
+   之后即可使用 `./生产.sh start`。
+2. **使用 bash 运行**：
+   ```bash
+   bash 生产.sh start
+   ```
+3. **自动化解决**：
+   项目已在 `deploy-quick.ps1` 部署流程中加入了自动修复权限逻辑，下次重新部署将自动生效。
+
+### 2. 运行脚本提示 `required file not found`
+**问题描述**：执行 `./生产.sh start` 时提示 `bash: ./生产.sh: cannot execute: required file not found`。
+**原因分析**：脚本是在 Windows 下编写或修改的，使用了 CRLF (Windows) 换行符，而 Linux 需要 LF 换行符。
+**解决方法**：
+1. **服务器手动修复**：
+   ```bash
+   sed -i 's/\r$//' 生产.sh
+   ```
+2. **自动化解决**：
+   项目已在 `deploy-quick.ps1` 部署流程中加入了自动转换换行符逻辑，下次重新部署将自动生效。
