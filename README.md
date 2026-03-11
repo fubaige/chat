@@ -53,8 +53,9 @@ ssh -i .ssh_deploy_key -p 59582 root@IP地址
 在本地使用 Git 将代码推送到 GitHub（请先关联你的仓库地址），然后在服务器端拉取：
 ```bash
 # 进入项目目录一键推送拉取部署
-git add -A; git status --short
-.\deploy-quick.ps1 -Message "fix: force Docker rebuild with BUILD_TIMESTAMP"
+git pull origin main --rebase
+
+.\deploy-quick.ps1
 
 
 ---
